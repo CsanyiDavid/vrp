@@ -8,9 +8,6 @@ using namespace std;
 using namespace lemon;
 
 int main(){
-    cout << "Hello" << endl;
-    ListDigraph g;
-    g.addNode();
-    cout << countNodes(g) << endl;
+
     return 0;
 }
