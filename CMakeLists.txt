@@ -1,5 +1,12 @@
-cmake_minimum_required(VERSION 3.10)
-project(vrp)
+INCLUDE_DIRECTORIES(
+        ${PROJECT_SOURCE_DIR}
+        ${PROJECT_BINARY_DIR}
+)
 
-add_executable(vrp main.cc)
-target_link_libraries(vrp emon)
+LINK_DIRECTORIES(
+        ${PROJECT_BINARY_DIR}/lemon
+)
+
+
+ADD_EXECUTABLE(vrp main.cc)
+TARGET_LINK_LIBRARIES(vrp lemon)
