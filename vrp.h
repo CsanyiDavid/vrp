@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <lemon/color.h>
+#include <lemon/dijkstra.h>
 #include <lemon/dim2.h>
 #include <lemon/graph_to_eps.h>
 #include <lemon/list_graph.h>
@@ -51,6 +52,9 @@ private:
     vector<ListDigraph::Node> nodes;
     //ListDigraph::NodeMap<int> ids;
     vector<vector<ListDigraph::Arc>> arcs;
+    ListDigraph::ArcMap<int> c;     //travel distance (meter)
+    ListDigraph::ArcMap<int> t;     //travel time (seconds)
+    vector<vector<vector<ListDigraph::Arc>>> paths;
 
 public:
     VRP(string inputMapName);
@@ -58,6 +62,8 @@ public:
     void generateCostumersGraph(int in_n);
 
     void printToEps(string filename);
+
+    void shortestPaths();
 };
 
 

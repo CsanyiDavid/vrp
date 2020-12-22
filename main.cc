@@ -11,6 +11,6 @@ using namespace lemon;
 int main(){
     VRP vrp("hun-sc-ncn.lgf");
     vrp.generateCostumersGraph(50);
-    vrp.printToEps("graph.eps");
+    //vrp.printToEps("graph.eps");
     return 0;
 }

@@ -43,7 +43,9 @@ VRP::VRP(string inputMapName)   :
     length{map},
     lat{map},
     lon{map},
-    coords{lon, lat}
+    coords{lon, lat},
+    c{g},
+    t{g}
 {
     Timer timer(true);
     cout << "Reading the map... " << flush;
@@ -86,10 +88,19 @@ void VRP::printToEps(string filename){
     Timer timer(true);
     cout << "Printing to eps..." << flush;
 
-    ListDigraph::ArcMap<Color> color(map, Color(0, 0, 0));
+    ListDigraph::ArcMap<Color> arcColor(map, Color(0, 0, 0));
+
+    ListDigraph::ArcMap<double> arcWidth(map, 0.0);
+    for(int j=0; j<=n; ++j) {
+        for(unsigned int k=0; k<paths[0][j].size(); ++k){
+            arcWidth[paths[0][j][k]]=0.1;
+        }
+    }
+
     ListDigraph::NodeMap<double> nodeSize(map, 0.0);
     ListDigraph::NodeMap<int> nodeShape(map, 0);
-    for(int i=0; i<=n; ++i) {
+    ListDigraph::NodeMap<Color> nodeColor(map, Color(0, 0, 255));
+    for(int i=1; i<=n; ++i) {
         nodeSize[map.nodeFromId(depotAndCostumers[i])] = 0.2;
     }
     nodeShape[map.nodeFromId(depotAndCostumers[0])]=1;
@@ -97,11 +108,68 @@ void VRP::printToEps(string filename){
 
     graphToEps(map, filename)
             .coords(coords)
-            .arcWidths(constMap<ListDigraph::Arc,double>(.02))
-            .arcColors(color)
+            .arcWidths(arcWidth)
+            .arcColors(arcColor)
             .scale(200)
             .nodeSizes(nodeSize)
             .nodeShapes(nodeShape)
+            .nodeColors(nodeColor)
             .run();
     cout << " Elapsed: " << timer.realTime() << "s" << endl;
+}
+
+class ArcTravelTime{
+private:
+    const ListDigraph& g;
+    const ListDigraph::ArcMap<int>& maxspeed;
+    const ListDigraph::ArcMap<int>& length;
+public:
+    typedef int Value;
+    typedef const ListDigraph::Arc Key;
+
+    ArcTravelTime(const ListDigraph& in_g,
+                  const ListDigraph::ArcMap<int>& in_maxspeed,
+                  const ListDigraph::ArcMap<int>& in_length)   :
+        g{in_g},
+        maxspeed{in_maxspeed},
+        length{in_length}
+    {
+    }
+
+    Value operator[](Key arc) const {
+        return length[arc]/(maxspeed[arc]*1000.0/60.0);
+    }
+};
+
+void VRP::shortestPaths()
+{
+    ArcTravelTime travelTime(g, maxspeed, length);
+
+    paths.resize(n);
+    for(int i=0; i<=n; ++i){
+        paths[i].resize(n);
+
+        ListDigraph::Node startNode=map.nodeFromId(depotAndCostumers[i]);
+        Dijkstra<ListDigraph, ArcTravelTime> dijkstra(map, travelTime);
+        dijkstra.run(startNode);
+
+        ListDigraph::Node currNode=INVALID;
+        ListDigraph::Arc currArc=INVALID;
+
+        for(int j = 0; j <= n; ++j){
+            if(j != i){
+                currNode=map.nodeFromId(depotAndCostumers[j]);
+
+                c[arcs[i][j]]=0;
+                t[arcs[i][j]]=0;
+                while(currNode != startNode){
+                    currArc=dijkstra.predArc(currNode);
+                    c[arcs[i][j]]+=length[currArc];
+                    t[arcs[i][j]]+=travelTime[currArc];
+                    paths[i][j].push_back(currArc);
+                    currNode = dijkstra.predNode(currNode);
+                }
+            }
+        }
+    }
 }
