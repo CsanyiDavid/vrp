@@ -3,7 +3,9 @@
 //
 
 #include <iostream>
+#include <lemon/color.h>
 #include <lemon/dim2.h>
+#include <lemon/graph_to_eps.h>
 #include <lemon/list_graph.h>
 #include <lemon/lgf_reader.h>
 #include <lemon/random.h>
@@ -54,6 +56,8 @@ public:
     VRP(string inputMapName);
 
     void generateCostumersGraph(int in_n);
+
+    void printToEps(string filename);
 };
 
 

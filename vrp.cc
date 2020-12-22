@@ -81,3 +81,27 @@ void VRP::generateCostumersGraph(int in_n)
         }
     }
 }
+
+void VRP::printToEps(string filename){
+    Timer timer(true);
+    cout << "Printing to eps..." << flush;
+
+    ListDigraph::ArcMap<Color> color(map, Color(0, 0, 0));
+    ListDigraph::NodeMap<double> nodeSize(map, 0.0);
+    ListDigraph::NodeMap<int> nodeShape(map, 0);
+    for(int i=0; i<=n; ++i) {
+        nodeSize[map.nodeFromId(depotAndCostumers[i])] = 0.2;
+    }
+    nodeShape[map.nodeFromId(depotAndCostumers[0])]=1;
+    nodeSize[map.nodeFromId(depotAndCostumers[0])]=0.5;
+
+    graphToEps(map, filename)
+            .coords(coords)
+            .arcWidths(constMap<ListDigraph::Arc,double>(.02))
+            .arcColors(color)
+            .scale(200)
+            .nodeSizes(nodeSize)
+            .nodeShapes(nodeShape)
+            .run();
+    cout << " Elapsed: " << timer.realTime() << "s" << endl;
+}
