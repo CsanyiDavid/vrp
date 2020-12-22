@@ -42,9 +42,10 @@ VRP::VRP(string inputMapName)   :
     maxspeed{map},
     length{map},
     lat{map},
-    lon{map}
+    lon{map},
+    coords{lon, lat}
 {
-    Timer timer(1);
+    Timer timer(true);
     cout << "Reading the map... " << flush;
     digraphReader(map, string(inputMapName))
             .arcMap("maxspeed",maxspeed)
@@ -53,6 +54,30 @@ VRP::VRP(string inputMapName)   :
             .nodeMap("lon",lon)
             .run();
     cout << "Elapsed: " << timer.realTime() << "s" << endl;
-    cout << "Number of nodes: " << countNodes(map) << endl;
-    cout << "Number of arcs: " << countArcs(map) << endl;
+    mapNodesNumber=countNodes(map);
+    mapArcsNumber=countArcs(map);
+    cout << "Number of nodes: " << mapNodesNumber << endl;
+    cout << "Number of arcs: " << mapArcsNumber << endl;
+}
+
+void VRP::generateCostumersGraph(int in_n)
+{
+    n=in_n;
+    depotAndCostumers.reserve(n+1);
+    nodes.reserve(n+1);
+    depotAndCostumers.push_back(0);
+    nodes.push_back(g.addNode());
+
+    Random random(42);
+    for(int i = 1; i <= n; ++i){
+        depotAndCostumers.push_back(random[mapNodesNumber]);
+        nodes.push_back(g.addNode());
+    }
+    arcs.resize(n+1);
+    for(int i = 0; i <=n; ++i){
+        arcs[i].reserve(n+1);
+        for(int j = 0; j <= n; ++j){
+            arcs[i].push_back(g.addArc(nodes[i], nodes[j]));
+        }
+    }
 }

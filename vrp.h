@@ -6,6 +6,7 @@
 #include <lemon/dim2.h>
 #include <lemon/list_graph.h>
 #include <lemon/lgf_reader.h>
+#include <lemon/random.h>
 #include <lemon/time_measure.h>
 #include <string>
 
@@ -37,13 +38,22 @@ private:
     ListDigraph::ArcMap<int> length;
     ListDigraph::NodeMap<double> lat;
     ListDigraph::NodeMap<double> lon;
+    int mapNodesNumber;
+    int mapArcsNumber;
+    CoordMap coords;
+    vector<int> depotAndCostumers;
 
     //The graph
     ListDigraph g;
+    int n;
+    vector<ListDigraph::Node> nodes;
+    //ListDigraph::NodeMap<int> ids;
+    vector<vector<ListDigraph::Arc>> arcs;
 
 public:
     VRP(string inputMapName);
 
+    void generateCostumersGraph(int in_n);
 };
 
 
