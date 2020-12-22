@@ -8,5 +8,5 @@ LINK_DIRECTORIES(
 )
 
 
-ADD_EXECUTABLE(vrp main.cc)
+ADD_EXECUTABLE(vrp main.cc vrp.cc)
 TARGET_LINK_LIBRARIES(vrp lemon)
