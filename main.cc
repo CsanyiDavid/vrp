@@ -13,6 +13,7 @@ int main(){
     vrp.generateCostumersGraph(50);
     vrp.printCostumerCoordinates();
     vrp.shortestPaths();
+    vrp.printShortestPathsFromDepot();
     vrp.printToEps("graph.eps");
     return 0;
 }

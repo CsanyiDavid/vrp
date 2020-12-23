@@ -71,7 +71,7 @@ VRP::VRP(string inputMapName)   :
     mapNodesNumber=countNodes(map);
     mapArcsNumber=countArcs(map);
     cout << "Number of nodes: " << mapNodesNumber << endl;
-    cout << "Number of arcs: " << mapArcsNumber << endl;
+    cout << "Number of arcs: " << mapArcsNumber << endl << endl;
 }
 
 void VRP::generateCostumersGraph(int in_n)
@@ -98,7 +98,7 @@ void VRP::generateCostumersGraph(int in_n)
             arcs[i].push_back(g.addArc(nodes[i], nodes[j]));
         }
     }
-    cout << " Elapsed: " << timer.realTime() << "s" << endl;
+    cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
 void VRP::printToEps(const string& filename){
@@ -140,7 +140,7 @@ void VRP::printToEps(const string& filename){
             //.nodeTexts(nodeText)
             //.nodeTextColors(nodeTextColor)
             .run();
-    cout << " Elapsed: " << timer.realTime() << "s" << endl;
+    cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
 class ArcTravelTime{
@@ -148,7 +148,7 @@ private:
     const ListDigraph::ArcMap<int>& maxspeed;
     const ListDigraph::ArcMap<int>& length;
 public:
-    typedef int Value;
+    typedef double Value;
     typedef const ListDigraph::Arc Key;
 
     ArcTravelTime(const ListDigraph::ArcMap<int>& in_maxspeed,
@@ -197,13 +197,13 @@ void VRP::shortestPaths()
             }
         }
     }
-    cout << " Elapsed: " << timer.realTime() << "s" << endl;
+    cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
 void VRP::printCostumerCoordinates()
 {
     cout << "Costumer coordinates: " << endl;
-    for(int i=0; i<n ; ++i){
+    for(int i = 0; i < n; ++i){
         ListDigraph::Node node;
         node=map.nodeFromId(depotAndCostumers[i]);
         cout << i << " : (" << lat[node] << ", " << lon[node] << ")" << endl;
@@ -224,4 +224,17 @@ ListDigraph::Node VRP::nodeIdFromLatLon(double latitude, double longitude)
         }
     }
     return closestNode;
+}
+
+void VRP::printShortestPathsFromDepot()
+{
+    cout << "Shortest paths from depot: " << endl;
+    for(int i = 1; i < n; ++i){
+        ListDigraph::Node node;
+        node=map.nodeFromId(depotAndCostumers[i]);
+        cout << i << " : (" << lat[node] << ", " << lon[node] << ")" << endl;
+        cout << "     time: " << t[arcs[0][i]] << " minutes" << endl;
+        cout << "     distance: " << c[arcs[0][i]] << " meters" << endl;
+    }
+    cout << endl;
 }

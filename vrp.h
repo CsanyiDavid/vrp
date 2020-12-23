@@ -58,7 +58,7 @@ private:
     ListDigraph::NodeMap<int> ids;
     vector<vector<ListDigraph::Arc>> arcs;
     ListDigraph::ArcMap<int> c;     //travel distance (meters)
-    ListDigraph::ArcMap<int> t;     //travel time (minutes)
+    ListDigraph::ArcMap<double> t;     //travel time (minutes)
     vector<vector<vector<ListDigraph::Arc>>> paths;
 
 public:
@@ -73,6 +73,8 @@ public:
     void printCostumerCoordinates();
 
     ListDigraph::Node nodeIdFromLatLon(double latitude, double longitude);
+
+    void printShortestPathsFromDepot();
 };
 
 
