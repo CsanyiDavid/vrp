@@ -16,6 +16,9 @@
 #ifndef VRP_H
 #define VRP_H
 
+#define BIG_VALUE 1000000000.0
+#define EPSILON 0.000001
+
 using namespace std;
 using namespace lemon;
 
@@ -32,6 +35,8 @@ public:
 
     Value operator[](const Key& node) const;
 };
+
+double haversineDist(double lat1, double lon1, double lat2, double lon2);
 
 class VRP{
 private:
@@ -50,10 +55,10 @@ private:
     ListDigraph g;
     int n;
     vector<ListDigraph::Node> nodes;
-    //ListDigraph::NodeMap<int> ids;
+    ListDigraph::NodeMap<int> ids;
     vector<vector<ListDigraph::Arc>> arcs;
-    ListDigraph::ArcMap<int> c;     //travel distance (meter)
-    ListDigraph::ArcMap<int> t;     //travel time (seconds)
+    ListDigraph::ArcMap<int> c;     //travel distance (meters)
+    ListDigraph::ArcMap<int> t;     //travel time (minutes)
     vector<vector<vector<ListDigraph::Arc>>> paths;
 
 public:
@@ -61,9 +66,13 @@ public:
 
     void generateCostumersGraph(int in_n);
 
-    void printToEps(string filename);
+    void printToEps(const string& filename);
 
     void shortestPaths();
+
+    void printCostumerCoordinates();
+
+    ListDigraph::Node nodeIdFromLatLon(double latitude, double longitude);
 };
 
 
