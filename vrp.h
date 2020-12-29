@@ -54,15 +54,22 @@ private:
     //The graph
     ListDigraph g;
     int n;
+
     vector<ListDigraph::Node> nodes;
     ListDigraph::NodeMap<int> ids;
     vector<vector<ListDigraph::Arc>> arcs;
-    ListDigraph::ArcMap<int> c;     //travel distance (meters)
-    ListDigraph::ArcMap<double> t;     //travel time (minutes)
     vector<vector<vector<ListDigraph::Arc>>> paths;
 
+    ListDigraph::ArcMap<int> c;     //travel distance (meters)
+    ListDigraph::ArcMap<double> t;     //travel time (minutes)
+    ListDigraph::NodeMap<int> a;
+    ListDigraph::NodeMap<int> b;
+    ListDigraph::NodeMap<int> q;
+    int Q;
+
+
 public:
-    VRP(string inputMapName);
+    VRP(bool isMap, string inputName);
 
     void generateCostumersGraph(int in_n);
 
@@ -72,7 +79,7 @@ public:
 
     void printCostumerCoordinates();
 
-    ListDigraph::Node nodeIdFromLatLon(double latitude, double longitude);
+    ListDigraph::Node nodeFromLatLon(double latitude, double longitude);
 
     void printShortestPathsFromDepot();
 };

@@ -10,3 +10,6 @@ LINK_DIRECTORIES(
 
 ADD_EXECUTABLE(vrp main.cc vrp.cc)
 TARGET_LINK_LIBRARIES(vrp lemon)
+
+#ADD_EXECUTABLE(in_gen input_generator.cc)
+#TARGET_LINK_LIBRARIES(in_gen lemon)

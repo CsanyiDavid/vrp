@@ -48,8 +48,8 @@ double haversineDist(double lat1, double lon1, double lat2, double lon2){
                                                          pow(sin(dlon/2), 2)));
 }
 
-
-VRP::VRP(string inputMapName)   :
+//Read a Map and create graph if isMap, else read graph
+VRP::VRP(bool isMap, string inputName)   :
     maxspeed{map},
     length{map},
     lat{map},
@@ -57,21 +57,33 @@ VRP::VRP(string inputMapName)   :
     coords{lon, lat},
     ids{g},
     c{g},
-    t{g}
+    t{g},
+    a{g},
+    b{g},
+    q{g}
 {
-    Timer timer(true);
-    cout << "Reading the map... " << flush;
-    digraphReader(map, string(inputMapName))
-            .arcMap("maxspeed",maxspeed)
-            .arcMap("length",length)
-            .nodeMap("lat",lat)
-            .nodeMap("lon",lon)
-            .run();
-    cout << "Elapsed: " << timer.realTime() << "s" << endl;
-    mapNodesNumber=countNodes(map);
-    mapArcsNumber=countArcs(map);
-    cout << "Number of nodes: " << mapNodesNumber << endl;
-    cout << "Number of arcs: " << mapArcsNumber << endl << endl;
+    if(isMap) {
+        Timer timer(true);
+        cout << "Reading the map... " << flush;
+        digraphReader(map, string(inputName))
+                .arcMap("maxspeed", maxspeed)
+                .arcMap("length", length)
+                .nodeMap("lat", lat)
+                .nodeMap("lon", lon)
+                .run();
+        cout << "Elapsed: " << timer.realTime() << "s" << endl;
+        mapNodesNumber = countNodes(map);
+        mapArcsNumber = countArcs(map);
+        cout << "Number of nodes: " << mapNodesNumber << endl;
+        cout << "Number of arcs: " << mapArcsNumber << endl << endl;
+    } else {
+        digraphReader(g, inputName)
+                .arcMap("c", c).arcMap("t", t)
+                .nodeMap("a",a).nodeMap("b",b)
+                .nodeMap("q", q)
+                .attribute("Q", Q)
+                .run();
+    }
 }
 
 void VRP::generateCostumersGraph(int in_n)
@@ -211,7 +223,7 @@ void VRP::printCostumerCoordinates()
     cout << endl;
 }
 
-ListDigraph::Node VRP::nodeIdFromLatLon(double latitude, double longitude)
+ListDigraph::Node VRP::nodeFromLatLon(double latitude, double longitude)
 {
     double minDist=BIG_VALUE;
     ListDigraph::Node closestNode=INVALID;

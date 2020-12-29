@@ -9,11 +9,13 @@ using namespace std;
 using namespace lemon;
 
 int main(){
-    VRP vrp("hun-sc-ncn.lgf");
-    vrp.generateCostumersGraph(50);
-    vrp.printCostumerCoordinates();
-    vrp.shortestPaths();
-    vrp.printShortestPathsFromDepot();
-    vrp.printToEps("graph.eps");
+    //VRP vrp(true, "hun-sc-ncn.lgf");
+    //vrp.generateCostumersGraph(50);
+    //vrp.printCostumerCoordinates();
+    //vrp.shortestPaths();
+    //vrp.printShortestPathsFromDepot();
+    //vrp.printToEps("graph.eps");
+
+    VRP vrp(false, "inp.lgf");
     return 0;
 }
