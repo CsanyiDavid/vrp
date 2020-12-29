@@ -7,6 +7,14 @@
 using namespace std;
 using namespace lemon;
 
+void myAssert(bool bo, string errorType)
+{
+    if(!bo){
+        cout << "Assertion error: " << errorType << endl;
+        exit(-1);
+    }
+}
+
 CoordMap::Value CoordMap::operator[](const Key& node) const {
     const double Phi = (lat[node] /* + 0.9430/60 */) / 180 * lemon::PI;
     const double Lam = (lon[node] /* + 4.0495/60 */) / 180 * lemon::PI;
@@ -89,6 +97,16 @@ VRP::VRP(bool isMap, string inputName)   :
         arcs.resize(n, vector<ListDigraph::Arc> (n));
         for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
             arcs[g.id(g.source(arc))][g.id(g.target(arc))]=arc;
+        }
+
+        //Check
+        for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
+            if(g.id(node)==0){
+                q[node]=0;
+            } else {
+                myAssert(q[node]<=Q, "Too big demand(q) value!");
+                myAssert(a[node]<=b[node], "Incorrect time window");
+            }
         }
     }
 }
@@ -267,6 +285,8 @@ void VRP::createMasterLP()
             masterLP.colLowerBound(startCols[node], 0);
             masterLP.colUpperBound(startCols[node], 1);
             //Calculate startCol costs
+            myAssert(c[arcs[0][g.id(node)]]<=b[node],
+                     "Costumer can't be served in time!");
             masterLP.objCoeff(
                     startCols[node],
                     c[arcs[0][g.id(node)]]+c[arcs[g.id(node)][0]]);

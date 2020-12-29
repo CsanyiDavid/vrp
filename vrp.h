@@ -23,6 +23,8 @@
 using namespace std;
 using namespace lemon;
 
+void myAssert(bool bo, string errorType);
+
 class CoordMap{
     ListDigraph::NodeMap<double>& lon;
     ListDigraph::NodeMap<double>& lat;
