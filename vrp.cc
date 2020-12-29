@@ -9,7 +9,7 @@ using namespace lemon;
 
 void myAssert(bool bo, string errorType)
 {
-    if(!bo){
+    if(!bo) {
         cout << "Assertion error: " << errorType << endl;
         exit(-1);
     }
@@ -231,6 +231,9 @@ void VRP::shortestPaths()
                     paths[i][j].push_back(currArc);
                     currNode = dijkstra.predNode(currNode);
                 }
+            } else {
+                //c[arcs[i][j]]=0; ????????
+                //t[arcs[i][j]]=0; ????????
             }
         }
     }
@@ -274,6 +277,20 @@ void VRP::printShortestPathsFromDepot()
         cout << "     distance: " << c[arcs[0][i]] << " meters" << endl;
     }
     cout << endl;
+}
+
+void VRP::updateTimeWindows()
+{
+    int T=0;
+    int curr_t;
+    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
+        curr_t=b[node]+t[arcs[g.id(node)][0]];
+        if(curr_t>T){
+            T=curr_t;
+        }
+    }
+    a[g.nodeFromId(0)]=0;
+    b[g.nodeFromId(0)]=T;
 }
 
 void VRP::createMasterLP()
@@ -379,7 +396,77 @@ public:
     }
 };
 
+class Labels{
+public:
+    int lower;
+    int upper;
+    int value;
+    bool equal; //True is lower==upper
+
+    Labels()    :
+        lower(-BIG_VALUE),
+        upper(BIG_VALUE),
+        equal(false)
+    {
+    }
+};
+
 bool VRP::generateColumn()
 {
+    //Step 1 : Initialization
+    MarginalCost mc(*this);
+    ListDigraph::Node node=INVALID;
+    vector<vector<vector<Labels>>> G(n, vector<vector<Labels>> (Q+1));
+    int T=b[g.nodeFromId(0)];
+    for(int jj=0; jj<n; ++jj) {
+        for(int qq=0; qq<=Q; ++qq){
+            node=g.nodeFromId(jj);
+            G[jj][qq].resize(b[node]);
+        }
+    }
+    G[0][0][0].upper=0;
+    G[0][0][0].lower=0;
+    G[0][0][0].value=0;
+    G[0][0][0].equal=true;
+
+    //Step 2 : Search for (q,t) to be treated
+    ListDigraph::Node jNode, iNode;
+
+    for(int qq=0; qq<=Q; ++qq){
+        for(int tt=0; tt<=T; ++tt){
+            for(int jj=0; jj<n; ++jj){
+                jNode=g.nodeFromId(jj);
+
+
+                if(a[jNode]<=tt && tt<=b[jNode]){
+                    for(int ii=0; ii<n; ++ii){
+                        iNode=g.nodeFromId(ii);
+                        for(int qq2=0; qq2<=Q; ++qq2){
+                            for(int tt2=a[iNode]; tt2<=b[iNode]; ++tt2){
+
+                                if(tt2+t[arcs[ii][jj]]<=tt && qq2+q[jNode]<=qq) {
+                                    int currUpper
+                                            = G[ii][qq2][tt2].upper + mc[arcs[ii][jj]];
+                                    int currLower
+                                            = G[ii][qq2][tt2].upper + mc[arcs[ii][jj]];
+                                    if (currUpper < G[jj][qq][tt].upper) {
+                                        G[jj][qq][tt].upper = currUpper;
+                                    }
+                                    if (currLower < G[jj][qq][tt].lower) {
+                                        G[jj][qq][tt].lower = currLower;
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+
+                }
+
+                //myAssert(G[jj][qq][tt].upper==G[jj][qq][tt].lower, "upper != lower");
+            }
+        }
+    }
+    cout << G[0][Q][T].lower << "   " << G[0][Q][T].upper << endl;
     return false;
 }

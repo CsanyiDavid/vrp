@@ -17,7 +17,7 @@
 #ifndef VRP_H
 #define VRP_H
 
-#define BIG_VALUE 1000000000.0
+#define BIG_VALUE 1000000000
 #define EPSILON 0.000001
 
 using namespace std;
@@ -95,6 +95,8 @@ public:
     ListDigraph::Node nodeFromLatLon(double latitude, double longitude);
 
     void printShortestPathsFromDepot();
+
+    void updateTimeWindows();
 
     void createMasterLP();
 
