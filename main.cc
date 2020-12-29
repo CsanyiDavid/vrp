@@ -17,5 +17,7 @@ int main(){
     //vrp.printToEps("graph.eps");
 
     VRP vrp(false, "inp.lgf");
+    vrp.createMasterLP();
+    vrp.printMasterLPSolution();
     return 0;
 }

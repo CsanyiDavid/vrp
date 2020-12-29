@@ -9,6 +9,7 @@
 #include <lemon/graph_to_eps.h>
 #include <lemon/list_graph.h>
 #include <lemon/lgf_reader.h>
+#include <lemon/lp.h>
 #include <lemon/random.h>
 #include <lemon/time_measure.h>
 #include <string>
@@ -67,11 +68,21 @@ private:
     ListDigraph::NodeMap<int> q;
     int Q;
 
+    // The Master Problem
+    Lp masterLP;
+    vector<Lp::Col> cols;
+    ListDigraph::NodeMap<Lp::Col> startCols;
+    ListDigraph::NodeMap<Lp::Row> nodeRows;
+    Lp::Col vehicleNumberCol;
+    Lp::Col totalCostCol;
+    Lp::Row vehicleNumberRow;
+    Lp::Row totalCostRow;
+
 
 public:
     VRP(bool isMap, string inputName);
 
-    void generateCostumersGraph(int in_n);
+    void generateCostumersGraph(int costumerCnt);
 
     void printToEps(const string& filename);
 
@@ -82,6 +93,10 @@ public:
     ListDigraph::Node nodeFromLatLon(double latitude, double longitude);
 
     void printShortestPathsFromDepot();
+
+    void createMasterLP();
+
+    void printMasterLPSolution();
 };
 
 

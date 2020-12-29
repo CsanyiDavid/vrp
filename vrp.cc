@@ -60,7 +60,9 @@ VRP::VRP(bool isMap, string inputName)   :
     t{g},
     a{g},
     b{g},
-    q{g}
+    q{g},
+    startCols{g},
+    nodeRows{g}
 {
     if(isMap) {
         Timer timer(true);
@@ -83,14 +85,19 @@ VRP::VRP(bool isMap, string inputName)   :
                 .nodeMap("q", q)
                 .attribute("Q", Q)
                 .run();
+        n=countNodes(g);
+        arcs.resize(n, vector<ListDigraph::Arc> (n));
+        for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
+            arcs[g.id(g.source(arc))][g.id(g.target(arc))]=arc;
+        }
     }
 }
 
-void VRP::generateCostumersGraph(int in_n)
+void VRP::generateCostumersGraph(int costumerCnt)
 {
     Timer timer(true);
     cout << "Generate costumer graph..." << flush;
-    n=in_n+1;
+    n=costumerCnt+1;
     depotAndCostumers.reserve(n);
     nodes.reserve(n);
     depotAndCostumers.push_back(0);
@@ -249,4 +256,66 @@ void VRP::printShortestPathsFromDepot()
         cout << "     distance: " << c[arcs[0][i]] << " meters" << endl;
     }
     cout << endl;
+}
+
+void VRP::createMasterLP()
+{
+    //Add cols
+    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
+        if(g.id(node)!=0){
+            startCols[node]=masterLP.addCol();
+            masterLP.colLowerBound(startCols[node], 0);
+            masterLP.colUpperBound(startCols[node], 1);
+            //Calculate startCol costs
+            masterLP.objCoeff(
+                    startCols[node],
+                    c[arcs[0][g.id(node)]]+c[arcs[g.id(node)][0]]);
+        }
+    }
+    vehicleNumberCol=masterLP.addCol();
+    totalCostCol=masterLP.addCol();
+    masterLP.colLowerBound(vehicleNumberCol, 0);
+    masterLP.colLowerBound(totalCostCol, 0);
+
+    //Add rows
+    for(ListDigraph::NodeIt node(g); node!=INVALID; ++node) {
+        if (g.id(node) != 0) {
+            nodeRows[node] = masterLP.addRow(startCols[node] >= 1);
+        }
+    }
+    vehicleNumberRow=masterLP.addRow();
+    totalCostRow=masterLP.addRow();
+
+    //Set vehicleNUmber and totalCost rows coeffs
+    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
+        if(g.id(node) != 0){
+            masterLP.coeff(vehicleNumberRow, startCols[node], 1);
+            masterLP.coeff(totalCostRow, startCols[node],
+                    masterLP.objCoeff(startCols[node]));
+        }
+    }
+    masterLP.coeff(vehicleNumberRow, vehicleNumberCol, -1);
+    masterLP.coeff(totalCostRow, totalCostCol, -1);
+    masterLP.rowLowerBound(vehicleNumberRow, 0);
+    masterLP.rowUpperBound(vehicleNumberRow, 0);
+    masterLP.rowLowerBound(totalCostRow, 0);
+    masterLP.rowUpperBound(totalCostRow, 0);
+
+
+    masterLP.min();
+
+}
+
+void VRP::printMasterLPSolution()
+{
+    masterLP.solve();
+
+    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node) {
+        if(g.id(node)!=0) {
+            cout << g.id(node) << " . node: ";
+            cout << masterLP.primal(startCols[node]) << endl;
+        }
+    }
+    cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
+    cout << "Total cost: " << masterLP.primal(totalCostCol) << endl;
 }
