@@ -18,6 +18,7 @@ int main(){
 
     VRP vrp(false, "inp.lgf");
     vrp.createMasterLP();
-    vrp.printMasterLPSolution();
+    //vrp.printMasterLPSolution();
+    vrp.solveMasterLP();
     return 0;
 }

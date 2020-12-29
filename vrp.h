@@ -99,6 +99,12 @@ public:
     void createMasterLP();
 
     void printMasterLPSolution();
+
+    void solveMasterLP();
+
+    bool generateColumn();
+
+    friend class MarginalCost;
 };
 
 

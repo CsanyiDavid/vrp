@@ -328,8 +328,9 @@ void VRP::createMasterLP()
 
 void VRP::printMasterLPSolution()
 {
-    masterLP.solve();
-
+    for(Lp::Col col : cols){
+        cout << masterLP.primal(col) << endl;
+    }
     for(ListDigraph::NodeIt node(g); node !=INVALID; ++node) {
         if(g.id(node)!=0) {
             cout << g.id(node) << " . node: ";
@@ -338,4 +339,47 @@ void VRP::printMasterLPSolution()
     }
     cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
     cout << "Total cost: " << masterLP.primal(totalCostCol) << endl;
+}
+
+void VRP::solveMasterLP()
+{
+    do{
+        masterLP.solve();
+        printMasterLPSolution();
+    } while(generateColumn());
+}
+
+class MarginalCost{
+private:
+    const VRP& vrp;
+public:
+    typedef const ListDigraph::Arc& Key;
+    typedef double Value;
+
+    MarginalCost(const VRP& in_vrp) :
+        vrp{in_vrp}
+    {}
+
+    Value operator[](Key arc){
+        ListDigraph::Node sNode, tNode;
+        sNode=vrp.g.source(arc);
+        tNode=vrp.g.target(arc);
+        double pi_c=vrp.masterLP.dual(vrp.totalCostRow);
+        double pi_s;
+        if(vrp.g.id(sNode)==0){
+            pi_s=vrp.masterLP.dual(vrp.vehicleNumberRow);
+        } else {
+            pi_s=vrp.masterLP.dual(vrp.nodeRows[sNode]);
+        }
+        int cost=0;
+        cost=(1-pi_c)*vrp.c[
+                vrp.arcs[vrp.g.id(sNode)][vrp.g.id(tNode)]
+                ]-pi_s;
+        return cost;
+    }
+};
+
+bool VRP::generateColumn()
+{
+    return false;
 }
