@@ -396,6 +396,7 @@ public:
     }
 };
 
+/*
 class Labels{
 public:
     int lower;
@@ -468,5 +469,97 @@ bool VRP::generateColumn()
         }
     }
     cout << G[0][Q][T].lower << "   " << G[0][Q][T].upper << endl;
+    return false;
+}
+*/
+
+class Label{
+private:
+    const ListDigraph& g;
+public:
+    ListDigraph::NodeMap<int> nodeUse;  //0 if not used, i if i-th node in path
+    int cost;
+    int weight;
+    int nodeCnt;
+
+    Label(const ListDigraph& inG)   :
+        g{inG},
+        nodeUse{inG, 0},
+        cost{0},
+        weight{0},
+        nodeCnt{0}
+    {
+    }
+
+    Label(const Label& l) :
+        g{l.g},
+        nodeUse{g, 0},
+        cost{l.cost},
+        weight{l.weight},
+        nodeCnt{l.nodeCnt}
+    {
+        for(ListDigraph::NodeIt node(g); node != INVALID; ++node){
+            nodeUse[node]=l.nodeUse[node];
+        }
+    }
+
+    Label& operator=(const Label& inL){
+        cost=inL.cost;
+        weight=inL.weight;
+        nodeCnt=inL.nodeCnt;
+        for(ListDigraph::NodeIt node(g); node != INVALID; ++node){
+            nodeUse[node]=inL.nodeUse[node];
+        }
+        return *this;
+    }
+};
+
+class NodeLabels{
+public:
+    vector<Label> labelList;
+    unsigned int nextIndex{0};
+
+    //write the next label to l if exists
+    //return tru if exists
+    bool next(Label& l){
+        if(nextIndex==labelList.size()){
+            return false;
+        } else {
+            l = labelList[nextIndex];
+            ++nextIndex;
+            return true;
+        }
+    }
+
+    bool dominated(const Label& l){
+        return false;
+    }
+};
+
+bool VRP::generateColumn()
+{
+    MarginalCost mc{*this};
+    ListDigraph::NodeMap<NodeLabels> nodeLabels(g);
+    ListDigraph::Node depot=g.nodeFromId(0);
+    nodeLabels[depot].labelList.push_back(Label (g));
+
+    ListDigraph::Node otherNode=INVALID;
+    Label l(g);
+    for(ListDigraph::NodeIt node(g); node != INVALID; ++node){
+        while(nodeLabels[node].next(l)){
+            for(ListDigraph::OutArcIt arc(g, node); arc != INVALID; ++arc){
+                otherNode=g.target(arc);
+                if(l.nodeUse[otherNode]==0 && l.weight+q[otherNode]<=Q){
+                    ++l.nodeCnt;
+                    l.nodeUse[otherNode]=l.nodeCnt;
+                    l.weight+=q[otherNode];
+                    l.cost+=mc[arc];
+                    if(!nodeLabels[otherNode].dominated(l)){
+                        nodeLabels[otherNode].labelList.push_back(l);
+                    }
+                }
+            }
+        }
+    }
     return false;
 }

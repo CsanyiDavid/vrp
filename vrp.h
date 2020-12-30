@@ -2,6 +2,7 @@
 // Created by david on 2020. 12. 22..
 //
 
+#include <deque>
 #include <iostream>
 #include <lemon/color.h>
 #include <lemon/dijkstra.h>
@@ -12,7 +13,9 @@
 #include <lemon/lp.h>
 #include <lemon/random.h>
 #include <lemon/time_measure.h>
+#include <list>
 #include <string>
+#include <vector>
 
 #ifndef VRP_H
 #define VRP_H
@@ -107,6 +110,7 @@ public:
     bool generateColumn();
 
     friend class MarginalCost;
+    friend class Label;
 };
 
 
