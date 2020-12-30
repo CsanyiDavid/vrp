@@ -366,32 +366,32 @@ void VRP::solveMasterLP()
     } while(generateColumn());
 }
 
-class MarginalCost{
+class MarginalCost {
 private:
-    const VRP& vrp;
+    const VRP &vrp;
 public:
-    typedef const ListDigraph::Arc& Key;
+    typedef const ListDigraph::Arc &Key;
     typedef double Value;
 
-    MarginalCost(const VRP& in_vrp) :
-        vrp{in_vrp}
+    MarginalCost(const VRP &in_vrp) :
+            vrp{in_vrp}
     {}
 
-    Value operator[](Key arc){
+    Value operator[](MarginalCost::Key arc) {
         ListDigraph::Node sNode, tNode;
-        sNode=vrp.g.source(arc);
-        tNode=vrp.g.target(arc);
-        double pi_c=vrp.masterLP.dual(vrp.totalCostRow);
+        sNode = vrp.g.source(arc);
+        tNode = vrp.g.target(arc);
+        double pi_c = vrp.masterLP.dual(vrp.totalCostRow);
         double pi_s;
-        if(vrp.g.id(sNode)==0){
-            pi_s=vrp.masterLP.dual(vrp.vehicleNumberRow);
+        if (vrp.g.id(sNode) == 0) {
+            pi_s = vrp.masterLP.dual(vrp.vehicleNumberRow);
         } else {
-            pi_s=vrp.masterLP.dual(vrp.nodeRows[sNode]);
+            pi_s = vrp.masterLP.dual(vrp.nodeRows[sNode]);
         }
-        int cost=0;
-        cost=(1-pi_c)*vrp.c[
+        int cost = 0;
+        cost = (1 - pi_c) * vrp.c[
                 vrp.arcs[vrp.g.id(sNode)][vrp.g.id(tNode)]
-                ]-pi_s;
+        ] - pi_s;
         return cost;
     }
 };
@@ -473,56 +473,52 @@ bool VRP::generateColumn()
 }
 */
 
-class Label{
+class Label {
 private:
-    const ListDigraph& g;
+    const ListDigraph &g;
 public:
     ListDigraph::NodeMap<int> nodeUse;  //0 if not used, i if i-th node in path
     int cost;
     int weight;
     int nodeCnt;
 
-    Label(const ListDigraph& inG)   :
-        g{inG},
-        nodeUse{inG, 0},
-        cost{0},
-        weight{0},
-        nodeCnt{0}
-    {
+    Label(const ListDigraph &inG) :
+            g{inG},
+            nodeUse{inG, 0},
+            cost{0},
+            weight{0},
+            nodeCnt{0} {
     }
 
-    Label(const Label& l) :
-        g{l.g},
-        nodeUse{g, 0},
-        cost{l.cost},
-        weight{l.weight},
-        nodeCnt{l.nodeCnt}
-    {
-        for(ListDigraph::NodeIt node(g); node != INVALID; ++node){
-            nodeUse[node]=l.nodeUse[node];
+    Label(const Label &l) :
+            g{l.g},
+            nodeUse{g, 0},
+            cost{l.cost},
+            weight{l.weight},
+            nodeCnt{l.nodeCnt} {
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            nodeUse[node] = l.nodeUse[node];
         }
     }
 
-    Label& operator=(const Label& inL){
-        cost=inL.cost;
-        weight=inL.weight;
-        nodeCnt=inL.nodeCnt;
-        for(ListDigraph::NodeIt node(g); node != INVALID; ++node){
-            nodeUse[node]=inL.nodeUse[node];
+    Label &operator=(const Label &inL) {
+        cost = inL.cost;
+        weight = inL.weight;
+        nodeCnt = inL.nodeCnt;
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            nodeUse[node] = inL.nodeUse[node];
         }
         return *this;
     }
 };
 
-class NodeLabels{
+class NodeLabels {
 public:
     vector<Label> labelList;
     unsigned int nextIndex{0};
 
-    //write the next label to l if exists
-    //return tru if exists
-    bool next(Label& l){
-        if(nextIndex==labelList.size()){
+    bool next(Label &l) {
+        if (nextIndex == labelList.size()) {
             return false;
         } else {
             l = labelList[nextIndex];
@@ -531,35 +527,82 @@ public:
         }
     }
 
-    bool dominated(const Label& l){
+    bool dominated(const Label &l) {
         return false;
     }
 };
 
+
+bool VRP::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels, const ListDigraph::Node& node,
+         MarginalCost& mc){
+    ListDigraph::Node otherNode=INVALID;
+    Label l(g);
+    bool extend=false;
+    while (nodeLabels[node].next(l)) {
+        extend=true;
+        for (ListDigraph::OutArcIt arc(g, node); arc != INVALID; ++arc) {
+            otherNode = g.target(arc);
+            if (l.nodeUse[otherNode] == 0 && l.weight + q[otherNode] <= Q) {
+                ++l.nodeCnt;
+                l.nodeUse[otherNode] = l.nodeCnt;
+                l.weight += q[otherNode];
+                l.cost += mc[arc];
+                if (!nodeLabels[otherNode].dominated(l)) {
+                    nodeLabels[otherNode].labelList.push_back(l);
+                }
+            }
+        }
+    }
+    return extend;
+}
+
 bool VRP::generateColumn()
 {
+    cout << "Column" << endl;
     MarginalCost mc{*this};
     ListDigraph::NodeMap<NodeLabels> nodeLabels(g);
     ListDigraph::Node depot=g.nodeFromId(0);
     nodeLabels[depot].labelList.push_back(Label (g));
 
-    ListDigraph::Node otherNode=INVALID;
-    Label l(g);
-    for(ListDigraph::NodeIt node(g); node != INVALID; ++node){
-        while(nodeLabels[node].next(l)){
-            for(ListDigraph::OutArcIt arc(g, node); arc != INVALID; ++arc){
-                otherNode=g.target(arc);
-                if(l.nodeUse[otherNode]==0 && l.weight+q[otherNode]<=Q){
-                    ++l.nodeCnt;
-                    l.nodeUse[otherNode]=l.nodeCnt;
-                    l.weight+=q[otherNode];
-                    l.cost+=mc[arc];
-                    if(!nodeLabels[otherNode].dominated(l)){
-                        nodeLabels[otherNode].labelList.push_back(l);
-                    }
-                }
+    int notExtendedCnt=0;
+
+    extendLabel(nodeLabels, depot, mc);
+
+    while(notExtendedCnt<n-1) {
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            if(g.id(node)==0){
+                continue;
+            }
+            if(notExtendedCnt>=n-1){
+                break;
+            }
+            //cout << g.id(node) << endl;
+
+            if(extendLabel(nodeLabels, node, mc)){
+                notExtendedCnt=0;
+            } else {
+                ++notExtendedCnt;
             }
         }
     }
-    return false;
+    //search min cost path
+    int minIndex=-1;
+    int minCost=BIG_VALUE;
+    for(unsigned int i=0; i<nodeLabels[depot].labelList.size(); ++i){
+        if(nodeLabels[depot].labelList[i].cost<minCost){
+            minCost=nodeLabels[depot].labelList[i].cost;
+            cout << minCost << endl;
+            minIndex=i;
+        } else {
+            cout << "Nope" << endl;
+        }
+    }
+    cout << "Found min cost: " << minCost << endl;
+    if(minCost<0){
+        //do some stuff
+        //adding new column
+        return true;
+    } else {
+        return false;
+    }
 }

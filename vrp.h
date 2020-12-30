@@ -44,6 +44,13 @@ public:
 
 double haversineDist(double lat1, double lon1, double lat2, double lon2);
 
+
+class MarginalCost;
+
+class Label;
+
+class NodeLabels;
+
 class VRP{
 private:
     //The map
@@ -107,11 +114,13 @@ public:
 
     void solveMasterLP();
 
+    bool extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels, const ListDigraph::Node& node,
+                     MarginalCost& mc);
+
     bool generateColumn();
 
     friend class MarginalCost;
     friend class Label;
 };
-
 
 #endif /* VRP_H */
