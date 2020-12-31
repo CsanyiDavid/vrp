@@ -8,15 +8,20 @@
 using namespace std;
 using namespace lemon;
 
-int main(){
-    //VRP vrp(true, "hun-sc-ncn.lgf");
-    //vrp.generateCostumersGraph(50);
-    //vrp.printCostumerCoordinates();
-    //vrp.shortestPaths();
-    //vrp.printShortestPathsFromDepot();
-    //vrp.printToEps("graph.eps");
+#define IS_MAP true
 
-    VRP vrp(false, "inp.lgf");
+int main(){
+    #if IS_MAP
+        VRP vrp(IS_MAP, "hun-sc-ncn.lgf");
+        vrp.generateCostumersGraph(25);
+        vrp.printCostumerCoordinates();
+        vrp.shortestPaths();
+        vrp.printShortestPathsFromDepot();
+        //vrp.printToEps("graph.eps");
+    #else
+        VRP vrp(IS_MAP, "inp.lgf");
+    #endif
+
     vrp.createMasterLP();
     vrp.solveMasterLP();
     return 0;

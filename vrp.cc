@@ -135,10 +135,10 @@ void VRP::generateCostumersGraph(int costumerCnt)
     }
     arcs.resize(n);
     for(int i = 0; i < n; ++i){
-        arcs[i].reserve(n);
+        arcs[i].resize(n);
         for(int j = 0; j < n; ++j){
             if(i != j) {
-                arcs[i].push_back(g.addArc(nodes[i], nodes[j]));
+                arcs[i][j]=g.addArc(nodes[i], nodes[j]);
             }
         }
     }
@@ -218,13 +218,12 @@ void VRP::shortestPaths()
         for(int j = 0; j < n; ++j){
             if(j != i){
                 currNode=map.nodeFromId(depotAndCostumers[j]);
-
                 c[arcs[i][j]]=0;
                 t[arcs[i][j]]=0;
-                while(currNode != startNode){
-                    currArc=dijkstra.predArc(currNode);
-                    c[arcs[i][j]]+=length[currArc];
-                    t[arcs[i][j]]+=travelTime[currArc];
+                while(currNode != startNode) {
+                    currArc = dijkstra.predArc(currNode);
+                    c[arcs[i][j]] += length[currArc];
+                    t[arcs[i][j]] += travelTime[currArc];
                     paths[i][j].push_back(currArc);
                     currNode = dijkstra.predNode(currNode);
                 }
@@ -466,6 +465,7 @@ bool VRP::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels, const ListD
 bool VRP::generateColumn()
 {
     cout << "Generating column" << endl;
+    Timer timer(true);
     MarginalCost mc{*this};
     ListDigraph::NodeMap<NodeLabels> nodeLabels(g);
     ListDigraph::Node depot=g.nodeFromId(0);
@@ -501,7 +501,8 @@ bool VRP::generateColumn()
             //cout << "Nope" << endl;
         }
     }
-    cout << "Found min cost: " << minCost << endl << endl;
+    cout << "Found min cost: " << minCost << endl;
+    cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
     if(minCost<0){
         //do some stuff
         //adding new column
