@@ -7,12 +7,17 @@
 using namespace std;
 using namespace lemon;
 
-void myAssert(bool bo, string errorType)
+void myAssert(bool bo, const string& errorType)
 {
     if(!bo) {
         cout << "Assertion error: " << errorType << endl;
         exit(-1);
     }
+}
+
+CoordMap::CoordMap(ListDigraph::NodeMap<double>& _lon,
+    ListDigraph::NodeMap<double>& _lat) : lon(_lon), lat(_lat)
+{
 }
 
 CoordMap::Value CoordMap::operator[](const Key& node) const {
@@ -57,17 +62,16 @@ double haversineDist(double lat1, double lon1, double lat2, double lon2){
 }
 
 //Read a Map and create graph if isMap, else read graph
-VRP::VRP(bool isMap, string inputName)   :
+VRP::VRP(bool isMap, const string& inputName)   :
     maxspeed{map},
     length{map},
     lat{map},
     lon{map},
     coords{lon, lat},
-    ids{g},
     c{g},
     t{g},
-    a{g},
-    b{g},
+    //a{g},
+    //b{g},
     q{g},
     startCols{g},
     nodeRows{g}
@@ -87,9 +91,11 @@ VRP::VRP(bool isMap, string inputName)   :
         cout << "Number of nodes: " << mapNodesNumber << endl;
         cout << "Number of arcs: " << mapArcsNumber << endl << endl;
     } else {
+        Timer timer(true);
+        cout << "Reading the graph.. " << flush;
         digraphReader(g, inputName)
                 .arcMap("c", c).arcMap("t", t)
-                .nodeMap("a",a).nodeMap("b",b)
+                //.nodeMap("a",a).nodeMap("b",b)
                 .nodeMap("q", q)
                 .attribute("Q", Q)
                 .run();
@@ -105,63 +111,57 @@ VRP::VRP(bool isMap, string inputName)   :
                 q[node]=0;
             } else {
                 myAssert(q[node]<=Q, "Too big demand(q) value!");
-                myAssert(a[node]<=b[node], "Incorrect time window");
             }
         }
+        cout << "Elapsed: " << timer.realTime() << "s" << endl;
+        cout << "Number of nodes: " << n << endl << endl;
     }
 }
 
 void VRP::generateCostumersGraph(int costumerCnt)
 {
     Timer timer(true);
-    cout << "Generate costumer graph..." << flush;
+    cout << "Generate costumer graph.. " << flush;
     n=costumerCnt+1;
     depotAndCostumers.reserve(n);
     nodes.reserve(n);
     depotAndCostumers.push_back(0);
     nodes.push_back(g.addNode());
-    ids[nodes[0]]=0;
 
     Random random(42);
     for(int i = 1; i < n; ++i){
         depotAndCostumers.push_back(random[mapNodesNumber]);
         nodes.push_back(g.addNode());
-        ids[nodes[i]]=i;
     }
     arcs.resize(n);
     for(int i = 0; i < n; ++i){
         arcs[i].reserve(n);
         for(int j = 0; j < n; ++j){
-            arcs[i].push_back(g.addArc(nodes[i], nodes[j]));
+            if(i != j) {
+                arcs[i].push_back(g.addArc(nodes[i], nodes[j]));
+            }
         }
     }
-    cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
+    cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
 void VRP::printToEps(const string& filename){
     Timer timer(true);
     cout << "Printing to eps..." << flush;
-
     ListDigraph::ArcMap<Color> arcColor(map, Color(0, 0, 0));
-
     ListDigraph::ArcMap<double> arcWidth(map, 0.0);
     for(int j=0; j<n; ++j) {
         for(unsigned int k=0; k<paths[0][j].size(); ++k){
             arcWidth[paths[0][j][k]]=0.1;
         }
     }
-
     ListDigraph::NodeMap<double> nodeSize(map, 0.0);
     ListDigraph::NodeMap<int> nodeShape(map, 0);
     ListDigraph::NodeMap<Color> nodeColor(map, Color(0, 0, 255));
-
-    //ListDigraph::NodeMap<string> nodeText(map, "");
-    //ListDigraph::NodeMap<Color> nodeTextColor(map, Color(255, 255, 0));
     ListDigraph::Node node=INVALID;
     for(int i = 1; i < n; ++i) {
         node=map.nodeFromId(depotAndCostumers[i]);
         nodeSize[node] = 0.2;
-        //nodeText[node] = to_string(i);
     }
     nodeShape[map.nodeFromId(depotAndCostumers[0])]=1;
     nodeSize[map.nodeFromId(depotAndCostumers[0])]=0.5;
@@ -174,8 +174,6 @@ void VRP::printToEps(const string& filename){
             .nodeSizes(nodeSize)
             .nodeShapes(nodeShape)
             .nodeColors(nodeColor)
-            //.nodeTexts(nodeText)
-            //.nodeTextColors(nodeTextColor)
             .run();
     cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
@@ -212,7 +210,6 @@ void VRP::shortestPaths()
 
         ListDigraph::Node startNode=map.nodeFromId(depotAndCostumers[i]);
         Dijkstra<ListDigraph, ArcTravelTime> dijkstra(map, travelTime);
-        //Dijkstra<ListDigraph> dijkstra(map, length);
         dijkstra.run(startNode);
 
         ListDigraph::Node currNode=INVALID;
@@ -231,9 +228,6 @@ void VRP::shortestPaths()
                     paths[i][j].push_back(currArc);
                     currNode = dijkstra.predNode(currNode);
                 }
-            } else {
-                //c[arcs[i][j]]=0; ????????
-                //t[arcs[i][j]]=0; ????????
             }
         }
     }
@@ -279,20 +273,6 @@ void VRP::printShortestPathsFromDepot()
     cout << endl;
 }
 
-void VRP::updateTimeWindows()
-{
-    int T=0;
-    int curr_t;
-    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
-        curr_t=b[node]+t[arcs[g.id(node)][0]];
-        if(curr_t>T){
-            T=curr_t;
-        }
-    }
-    a[g.nodeFromId(0)]=0;
-    b[g.nodeFromId(0)]=T;
-}
-
 void VRP::createMasterLP()
 {
     //Add cols
@@ -302,8 +282,6 @@ void VRP::createMasterLP()
             masterLP.colLowerBound(startCols[node], 0);
             masterLP.colUpperBound(startCols[node], 1);
             //Calculate startCol costs
-            myAssert(c[arcs[0][g.id(node)]]<=b[node],
-                     "Costumer can't be served in time!");
             masterLP.objCoeff(
                     startCols[node],
                     c[arcs[0][g.id(node)]]+c[arcs[g.id(node)][0]]);
@@ -323,7 +301,7 @@ void VRP::createMasterLP()
     vehicleNumberRow=masterLP.addRow();
     totalCostRow=masterLP.addRow();
 
-    //Set vehicleNUmber and totalCost rows coeffs
+    //Set vehicleNumber and totalCost rows coeffs
     for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
         if(g.id(node) != 0){
             masterLP.coeff(vehicleNumberRow, startCols[node], 1);
@@ -338,13 +316,12 @@ void VRP::createMasterLP()
     masterLP.rowLowerBound(totalCostRow, 0);
     masterLP.rowUpperBound(totalCostRow, 0);
 
-
     masterLP.min();
-
 }
 
 void VRP::printMasterLPSolution()
 {
+    cout << "Master LP solution:" << endl;
     for(Lp::Col col : cols){
         cout << masterLP.primal(col) << endl;
     }
@@ -355,15 +332,19 @@ void VRP::printMasterLPSolution()
         }
     }
     cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
-    cout << "Total cost: " << masterLP.primal(totalCostCol) << endl;
+    cout << "Total cost: " << masterLP.primal(totalCostCol) << endl << endl;
 }
 
 void VRP::solveMasterLP()
 {
+    Timer timer(true);
+    cout << "Solving the master problem.. " << endl;
     do{
         masterLP.solve();
         printMasterLPSolution();
     } while(generateColumn());
+
+    cout << "Elapsed: " << timer.realTime() << "s" << endl;
 }
 
 class MarginalCost {
@@ -396,83 +377,6 @@ public:
     }
 };
 
-/*
-class Labels{
-public:
-    int lower;
-    int upper;
-    int value;
-    bool equal; //True is lower==upper
-
-    Labels()    :
-        lower(-BIG_VALUE),
-        upper(BIG_VALUE),
-        equal(false)
-    {
-    }
-};
-
-bool VRP::generateColumn()
-{
-    //Step 1 : Initialization
-    MarginalCost mc(*this);
-    ListDigraph::Node node=INVALID;
-    vector<vector<vector<Labels>>> G(n, vector<vector<Labels>> (Q+1));
-    int T=b[g.nodeFromId(0)];
-    for(int jj=0; jj<n; ++jj) {
-        for(int qq=0; qq<=Q; ++qq){
-            node=g.nodeFromId(jj);
-            G[jj][qq].resize(b[node]);
-        }
-    }
-    G[0][0][0].upper=0;
-    G[0][0][0].lower=0;
-    G[0][0][0].value=0;
-    G[0][0][0].equal=true;
-
-    //Step 2 : Search for (q,t) to be treated
-    ListDigraph::Node jNode, iNode;
-
-    for(int qq=0; qq<=Q; ++qq){
-        for(int tt=0; tt<=T; ++tt){
-            for(int jj=0; jj<n; ++jj){
-                jNode=g.nodeFromId(jj);
-
-
-                if(a[jNode]<=tt && tt<=b[jNode]){
-                    for(int ii=0; ii<n; ++ii){
-                        iNode=g.nodeFromId(ii);
-                        for(int qq2=0; qq2<=Q; ++qq2){
-                            for(int tt2=a[iNode]; tt2<=b[iNode]; ++tt2){
-
-                                if(tt2+t[arcs[ii][jj]]<=tt && qq2+q[jNode]<=qq) {
-                                    int currUpper
-                                            = G[ii][qq2][tt2].upper + mc[arcs[ii][jj]];
-                                    int currLower
-                                            = G[ii][qq2][tt2].upper + mc[arcs[ii][jj]];
-                                    if (currUpper < G[jj][qq][tt].upper) {
-                                        G[jj][qq][tt].upper = currUpper;
-                                    }
-                                    if (currLower < G[jj][qq][tt].lower) {
-                                        G[jj][qq][tt].lower = currLower;
-                                    }
-                                }
-                            }
-                        }
-
-                    }
-
-                }
-
-                //myAssert(G[jj][qq][tt].upper==G[jj][qq][tt].lower, "upper != lower");
-            }
-        }
-    }
-    cout << G[0][Q][T].lower << "   " << G[0][Q][T].upper << endl;
-    return false;
-}
-*/
-
 class Label {
 private:
     const ListDigraph &g;
@@ -487,7 +391,8 @@ public:
             nodeUse{inG, 0},
             cost{0},
             weight{0},
-            nodeCnt{0} {
+            nodeCnt{0}
+    {
     }
 
     Label(const Label &l) :
@@ -495,7 +400,8 @@ public:
             nodeUse{g, 0},
             cost{l.cost},
             weight{l.weight},
-            nodeCnt{l.nodeCnt} {
+            nodeCnt{l.nodeCnt}
+    {
         for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
             nodeUse[node] = l.nodeUse[node];
         }
@@ -528,6 +434,7 @@ public:
     }
 
     bool dominated(const Label &l) {
+        //todo
         return false;
     }
 };
@@ -558,14 +465,13 @@ bool VRP::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels, const ListD
 
 bool VRP::generateColumn()
 {
-    cout << "Column" << endl;
+    cout << "Generating column" << endl;
     MarginalCost mc{*this};
     ListDigraph::NodeMap<NodeLabels> nodeLabels(g);
     ListDigraph::Node depot=g.nodeFromId(0);
-    nodeLabels[depot].labelList.push_back(Label (g));
+    nodeLabels[depot].labelList.emplace_back(g);
 
     int notExtendedCnt=0;
-
     extendLabel(nodeLabels, depot, mc);
 
     while(notExtendedCnt<n-1) {
@@ -576,8 +482,6 @@ bool VRP::generateColumn()
             if(notExtendedCnt>=n-1){
                 break;
             }
-            //cout << g.id(node) << endl;
-
             if(extendLabel(nodeLabels, node, mc)){
                 notExtendedCnt=0;
             } else {
@@ -591,17 +495,18 @@ bool VRP::generateColumn()
     for(unsigned int i=0; i<nodeLabels[depot].labelList.size(); ++i){
         if(nodeLabels[depot].labelList[i].cost<minCost){
             minCost=nodeLabels[depot].labelList[i].cost;
-            cout << minCost << endl;
-            minIndex=i;
+            //cout << minCost << endl;
+            minIndex=static_cast<int>(i);
         } else {
-            cout << "Nope" << endl;
+            //cout << "Nope" << endl;
         }
     }
-    cout << "Found min cost: " << minCost << endl;
+    cout << "Found min cost: " << minCost << endl << endl;
     if(minCost<0){
         //do some stuff
         //adding new column
-        return true;
+        //todo
+        return false;   //it should be true
     } else {
         return false;
     }

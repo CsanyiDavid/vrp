@@ -2,7 +2,6 @@
 // Created by david on 2020. 12. 22..
 //
 
-#include <deque>
 #include <iostream>
 #include <lemon/color.h>
 #include <lemon/dijkstra.h>
@@ -13,7 +12,6 @@
 #include <lemon/lp.h>
 #include <lemon/random.h>
 #include <lemon/time_measure.h>
-#include <list>
 #include <string>
 #include <vector>
 
@@ -26,7 +24,7 @@
 using namespace std;
 using namespace lemon;
 
-void myAssert(bool bo, string errorType);
+void myAssert(bool bo, const string& errorType);
 
 class CoordMap{
     ListDigraph::NodeMap<double>& lon;
@@ -36,14 +34,12 @@ public:
     typedef dim2::Point<double> Value;
 
     CoordMap(ListDigraph::NodeMap<double>& _lon,
-             ListDigraph::NodeMap<double>& _lat) : lon(_lon), lat(_lat){
-    }
+             ListDigraph::NodeMap<double>& _lat);
 
     Value operator[](const Key& node) const;
 };
 
 double haversineDist(double lat1, double lon1, double lat2, double lon2);
-
 
 class MarginalCost;
 
@@ -69,14 +65,14 @@ private:
     int n;
 
     vector<ListDigraph::Node> nodes;
-    ListDigraph::NodeMap<int> ids;
+    //ListDigraph::NodeMap<int> ids;
     vector<vector<ListDigraph::Arc>> arcs;
     vector<vector<vector<ListDigraph::Arc>>> paths;
 
     ListDigraph::ArcMap<int> c;     //travel distance (meters)
     ListDigraph::ArcMap<double> t;     //travel time (minutes)
-    ListDigraph::NodeMap<int> a;
-    ListDigraph::NodeMap<int> b;
+    //ListDigraph::NodeMap<int> a;
+    //ListDigraph::NodeMap<int> b;
     ListDigraph::NodeMap<int> q;
     int Q;
 
@@ -92,7 +88,7 @@ private:
 
 
 public:
-    VRP(bool isMap, string inputName);
+    VRP(bool isMap, const string& inputName);
 
     void generateCostumersGraph(int costumerCnt);
 
@@ -105,8 +101,6 @@ public:
     ListDigraph::Node nodeFromLatLon(double latitude, double longitude);
 
     void printShortestPathsFromDepot();
-
-    void updateTimeWindows();
 
     void createMasterLP();
 
