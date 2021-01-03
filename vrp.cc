@@ -452,18 +452,22 @@ bool VRP::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels,
 {
     ListDigraph::Node otherNode=INVALID;
     Label l(g);
+    Label extendedL(g);
     bool extend=false;
     while (nodeLabels[node].next(l)) {
         extend=true;
         for (ListDigraph::OutArcIt arc(g, node); arc != INVALID; ++arc) {
             otherNode = g.target(arc);
-            if (l.nodeUse[otherNode] == 0 && l.weight + q[otherNode] <= Q) {
-                ++l.nodeCnt;
-                l.nodeUse[otherNode] = l.nodeCnt;
-                l.weight += q[otherNode];
-                l.cost += mc[arc];
-                if (!nodeLabels[otherNode].dominated(l)) {
-                    nodeLabels[otherNode].labelList.push_back(l);
+            extendedL=l;
+            if (extendedL.nodeUse[otherNode] == 0
+                && extendedL.weight + q[otherNode] <= Q)
+            {
+                ++extendedL.nodeCnt;
+                extendedL.nodeUse[otherNode] = extendedL.nodeCnt;
+                extendedL.weight += q[otherNode];
+                extendedL.cost += mc[arc];
+                if (!nodeLabels[otherNode].dominated(extendedL)) {
+                    nodeLabels[otherNode].labelList.push_back(extendedL);
                 }
             }
         }
@@ -535,14 +539,14 @@ void VRP::addGeneratedColumn(const Label& l)
             currRouteNodes[l.nodeUse[node]] = node;
         }
     }
-    masterLP.colLowerBound(col, 0);
-    masterLP.colUpperBound(col, 1);
+    masterLP.colLowerBound(col, 0.0);
+    masterLP.colUpperBound(col, 1.0);
     int currCost=0;
     cout << "Added column's nodes:  ";
     for(int i=0; i<nodeCount; ++i){
         cout << g.id(currRouteNodes[i]) << " ";
         if(g.id(currRouteNodes[i]) != 0) {
-            masterLP.coeff(nodeRows[currRouteNodes[i]], col, 1);
+            masterLP.coeff(nodeRows[currRouteNodes[i]], col, 1.0);
         }
         if(i>0){
             routes[routes.size()-1][i-1]=

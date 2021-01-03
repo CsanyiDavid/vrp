@@ -13,7 +13,7 @@ using namespace lemon;
 int main(){
     #if IS_MAP
         VRP vrp(IS_MAP, "hun-sc-ncn.lgf");
-        vrp.generateCostumersGraph(25);
+        vrp.generateCostumersGraph(10);
         vrp.printCostumerCoordinates();
         vrp.shortestPaths();
         vrp.printShortestPathsFromDepot();
