@@ -8,7 +8,7 @@
 using namespace std;
 using namespace lemon;
 
-#define IS_MAP true
+#define IS_MAP false
 
 int main(){
     #if IS_MAP

@@ -79,6 +79,7 @@ private:
     // The Master Problem
     Lp masterLP;
     vector<Lp::Col> cols;
+    vector<vector<ListDigraph::Arc>> routes;
     ListDigraph::NodeMap<Lp::Col> startCols;
     ListDigraph::NodeMap<Lp::Row> nodeRows;
     Lp::Col vehicleNumberCol;
@@ -112,6 +113,8 @@ public:
                      MarginalCost& mc);
 
     bool generateColumn();
+
+    void addGeneratedColumn(const Label& l);
 
     friend class MarginalCost;
     friend class Label;

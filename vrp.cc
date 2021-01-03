@@ -142,6 +142,10 @@ void VRP::generateCostumersGraph(int costumerCnt)
             }
         }
     }
+    for(ListDigraph::NodeIt node(g); node != INVALID; ++node){
+        q[node]=random[20]+1;
+    }
+    Q=100;
     cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
@@ -321,8 +325,11 @@ void VRP::createMasterLP()
 void VRP::printMasterLPSolution()
 {
     cout << "Master LP solution:" << endl;
+    cout << "Number of added columns: " << cols.size() << endl;
     for(Lp::Col col : cols){
-        cout << masterLP.primal(col) << endl;
+        if(masterLP.primal(col)>EPSILON) {
+            cout << masterLP.primal(col) << endl;
+        }
     }
     for(ListDigraph::NodeIt node(g); node !=INVALID; ++node) {
         if(g.id(node)!=0) {
@@ -381,14 +388,14 @@ private:
     const ListDigraph &g;
 public:
     ListDigraph::NodeMap<int> nodeUse;  //0 if not used, i if i-th node in path
-    int cost;
+    double cost;
     int weight;
     int nodeCnt;
 
     Label(const ListDigraph &inG) :
             g{inG},
             nodeUse{inG, 0},
-            cost{0},
+            cost{0.0},
             weight{0},
             nodeCnt{0}
     {
@@ -439,8 +446,10 @@ public:
 };
 
 
-bool VRP::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels, const ListDigraph::Node& node,
-         MarginalCost& mc){
+bool VRP::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels,
+         const ListDigraph::Node& node,
+         MarginalCost& mc)
+{
     ListDigraph::Node otherNode=INVALID;
     Label l(g);
     bool extend=false;
@@ -491,24 +500,58 @@ bool VRP::generateColumn()
     }
     //search min cost path
     int minIndex=-1;
-    int minCost=BIG_VALUE;
-    for(unsigned int i=0; i<nodeLabels[depot].labelList.size(); ++i){
+    double minCost=BIG_VALUE;
+    for(int i=0; i<nodeLabels[depot].labelList.size(); ++i){
         if(nodeLabels[depot].labelList[i].cost<minCost){
             minCost=nodeLabels[depot].labelList[i].cost;
             //cout << minCost << endl;
-            minIndex=static_cast<int>(i);
+            minIndex=i;
         } else {
             //cout << "Nope" << endl;
         }
     }
     cout << "Found min cost: " << minCost << endl;
     cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
-    if(minCost<0){
-        //do some stuff
-        //adding new column
-        //todo
-        return false;   //it should be true
+    if(minCost<-EPSILON){
+        addGeneratedColumn(nodeLabels[depot].labelList[minIndex]);
+        return true;
     } else {
         return false;
     }
+}
+
+void VRP::addGeneratedColumn(const Label& l)
+{
+    int nodeCount=l.nodeCnt+1;
+
+    Lp::Col col;
+    col=masterLP.addCol();
+    cols.push_back(col);
+    routes.push_back(vector<ListDigraph::Arc> (nodeCount-1, INVALID));
+    vector<ListDigraph::Node> currRouteNodes(nodeCount, INVALID);
+    currRouteNodes[0]=g.nodeFromId(0);
+    for(ListDigraph::NodeIt node(g); node != INVALID; ++node){
+        if(l.nodeUse[node]!=0) {
+            currRouteNodes[l.nodeUse[node]] = node;
+        }
+    }
+    masterLP.colLowerBound(col, 0);
+    masterLP.colUpperBound(col, 1);
+    int currCost=0;
+    cout << "Added column's nodes:  ";
+    for(int i=0; i<nodeCount; ++i){
+        cout << g.id(currRouteNodes[i]) << " ";
+        if(g.id(currRouteNodes[i]) != 0) {
+            masterLP.coeff(nodeRows[currRouteNodes[i]], col, 1);
+        }
+        if(i>0){
+            routes[routes.size()-1][i-1]=
+                    arcs[g.id(currRouteNodes[i-1])][g.id(currRouteNodes[i])];
+            currCost+=c[routes[routes.size()-1][i-1]];
+        }
+    }
+    cout << endl;
+    masterLP.coeff(vehicleNumberRow, col, 1);
+    masterLP.coeff(totalCostRow, col, currCost);
+    masterLP.objCoeff(col, currCost);
 }
