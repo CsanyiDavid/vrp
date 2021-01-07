@@ -116,6 +116,8 @@ public:
 
     void addGeneratedColumn(const Label& l);
 
+    void printMasterLPMatrix();
+
     friend class MarginalCost;
     friend class Label;
 };

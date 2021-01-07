@@ -292,6 +292,8 @@ void VRP::createMasterLP()
     }
     vehicleNumberCol=masterLP.addCol();
     totalCostCol=masterLP.addCol();
+    masterLP.objCoeff(vehicleNumberCol, 0);
+    masterLP.objCoeff(totalCostCol, 0);
     masterLP.colLowerBound(vehicleNumberCol, 0);
     masterLP.colLowerBound(totalCostCol, 0);
 
@@ -323,7 +325,7 @@ void VRP::createMasterLP()
 }
 
 void VRP::printMasterLPSolution()
-{
+{/*
     cout << "Master LP solution:" << endl;
     cout << "Number of added columns: " << cols.size() << endl;
     for(Lp::Col col : cols){
@@ -339,18 +341,8 @@ void VRP::printMasterLPSolution()
     }
     cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
     cout << "Total cost: " << masterLP.primal(totalCostCol) << endl << endl;
-}
-
-void VRP::solveMasterLP()
-{
-    Timer timer(true);
-    cout << "Solving the master problem.. " << endl;
-    do{
-        masterLP.solve();
-        printMasterLPSolution();
-    } while(generateColumn());
-
-    cout << "Elapsed: " << timer.realTime() << "s" << endl;
+*/
+    printMasterLPMatrix();
 }
 
 class MarginalCost {
@@ -383,10 +375,24 @@ public:
     }
 };
 
+void VRP::solveMasterLP()
+{
+    Timer timer(true);
+    cout << "Solving the master problem.. " << endl;
+    int itCnt=0;
+    do{
+        ++itCnt;
+        masterLP.solve();
+        printMasterLPSolution();
+    } while(generateColumn());
+
+    cout << "Elapsed: " << timer.realTime() << "s" << endl;
+}
+
 class Label {
-private:
-    const ListDigraph &g;
 public:
+    const ListDigraph &g;
+
     ListDigraph::NodeMap<int> nodeUse;  //0 if not used, i if i-th node in path
     double cost;
     int weight;
@@ -440,7 +446,25 @@ public:
     }
 
     bool dominated(const Label &l) {
-        //todo
+        bool isDominator;
+        for(int i=0; i<labelList.size(); ++i){
+            isDominator=true;
+            if(l.cost>=labelList[i].cost
+                && l.weight>=labelList[i].weight)
+            {
+                for(ListDigraph::NodeIt node(l.g); node != INVALID; ++node){
+                    if(l.nodeUse[node]==0 && labelList[i].nodeUse[node]>0){
+                        isDominator=false;
+                        break;
+                    }
+                }
+            } else {
+                isDominator=false;
+            }
+            if(isDominator){
+                return true;
+            }
+        }
         return false;
     }
 };
@@ -467,6 +491,10 @@ bool VRP::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels,
                 extendedL.weight += q[otherNode];
                 extendedL.cost += mc[arc];
                 if (!nodeLabels[otherNode].dominated(extendedL)) {
+
+                    //cerr << g.id(node) << "  -> " << g.id(otherNode);
+                    //cerr << "  : " << extendedL.cost << endl;
+
                     nodeLabels[otherNode].labelList.push_back(extendedL);
                 }
             }
@@ -558,4 +586,47 @@ void VRP::addGeneratedColumn(const Label& l)
     masterLP.coeff(vehicleNumberRow, col, 1);
     masterLP.coeff(totalCostRow, col, currCost);
     masterLP.objCoeff(col, currCost);
+}
+
+void VRP::printMasterLPMatrix(){
+    cout << "PRINT MASTERLP MATRIX: " << endl;
+    cout << "\t";
+    for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
+        cout << masterLP.primal(col) << "\t  ";
+    }
+    cout << "|  " << endl;
+
+
+    cout << "\t";
+    for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
+        cout << "-" << "\t  ";
+    }
+    cout << "|  " << endl;
+
+
+    for(Lp::RowIt row(masterLP); row !=INVALID; ++row){
+        cout << masterLP.dual(row) << " |\t";
+        for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
+            cout << masterLP.coeff(row, col) << "\t  ";
+        }
+        cout << "|  ";
+        cout << masterLP.rowLowerBound(row) << "  ";
+        cout << masterLP.rowUpperBound(row) << endl;
+    }
+
+
+    cout << "\t";
+    for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
+        cout << "-" << "\t  ";
+    }
+    cout << "|  " << endl;
+
+
+    cout << "\t";
+    for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
+        cout << masterLP.objCoeff(col) << "\t  ";
+    }
+    cout << "|  " << endl;
+
+    cout << endl;
 }
