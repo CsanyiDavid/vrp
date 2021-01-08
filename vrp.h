@@ -87,6 +87,8 @@ private:
     Lp::Row vehicleNumberRow;
     Lp::Row totalCostRow;
 
+    //Check Mip
+    Mip lp;
 
 public:
     VRP(bool isMap, const string& inputName);
@@ -117,6 +119,9 @@ public:
     void addGeneratedColumn(const Label& l);
 
     void printMasterLPMatrix();
+
+    void checkLP();
+    void printToEpsCheckLp();
 
     friend class MarginalCost;
     friend class Label;

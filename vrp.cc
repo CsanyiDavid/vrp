@@ -325,7 +325,7 @@ void VRP::createMasterLP()
 }
 
 void VRP::printMasterLPSolution()
-{/*
+{
     cout << "Master LP solution:" << endl;
     cout << "Number of added columns: " << cols.size() << endl;
     for(Lp::Col col : cols){
@@ -340,9 +340,22 @@ void VRP::printMasterLPSolution()
         }
     }
     cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
-    cout << "Total cost: " << masterLP.primal(totalCostCol) << endl << endl;
-*/
-    printMasterLPMatrix();
+    cout << "Total cost: " << masterLP.primal(totalCostCol) << endl;
+
+    //printMasterLPMatrix();
+    int dualCost=0;
+    for(Lp::RowIt row(masterLP); row!=INVALID; ++row){
+        dualCost+=masterLP.dual(row);
+    }
+    dualCost-=masterLP.dual(vehicleNumberRow);
+    dualCost-=masterLP.dual(totalCostRow);
+    cout << "Dual cost: " << dualCost << endl;
+    /*if(abs(masterLP.primal(totalCostCol)-dualCost)<1){
+        cout << "DUAL OK" << endl;
+    } else {
+        cout << "WRONG DUAL" << endl;
+    }*/
+    cout << endl;
 }
 
 class MarginalCost {
@@ -383,8 +396,11 @@ void VRP::solveMasterLP()
     do{
         ++itCnt;
         masterLP.solve();
+        masterLP.solve();
+        myAssert(masterLP.primalType()==Lp::OPTIMAL, "Not optimal");
+        //printMasterLPMatrix();
         printMasterLPSolution();
-    } while(generateColumn());
+    } while(generateColumn() && itCnt<30);
 
     cout << "Elapsed: " << timer.realTime() << "s" << endl;
 }
@@ -447,7 +463,7 @@ public:
 
     bool dominated(const Label &l) {
         bool isDominator;
-        for(int i=0; i<labelList.size(); ++i){
+        for(int i=0; i<static_cast<int>(labelList.size()); ++i){
             isDominator=true;
             if(l.cost>=labelList[i].cost
                 && l.weight>=labelList[i].weight)
@@ -533,7 +549,7 @@ bool VRP::generateColumn()
     //search min cost path
     int minIndex=-1;
     double minCost=BIG_VALUE;
-    for(int i=0; i<nodeLabels[depot].labelList.size(); ++i){
+    for(int i=0; i<static_cast<int>(nodeLabels[depot].labelList.size()); ++i){
         if(nodeLabels[depot].labelList[i].cost<minCost){
             minCost=nodeLabels[depot].labelList[i].cost;
             //cout << minCost << endl;
@@ -630,3 +646,94 @@ void VRP::printMasterLPMatrix(){
 
     cout << endl;
 }
+
+void VRP::checkLP() {
+    Timer timer(true);
+    cout << "Check LP started: " << endl;
+
+    //Add cols
+    ListDigraph::ArcMap<Lp::Col> cols(g);
+    for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
+        cols[arc]=lp.addCol();
+        lp.colLowerBound(cols[arc], 0);
+        lp.colUpperBound(cols[arc], 1);
+        lp.colType(cols[arc], Mip::INTEGER);
+    }
+    ListDigraph::NodeMap<Lp::Col> weights(g);
+    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
+        weights[node]=lp.addCol();
+        lp.colLowerBound(weights[node], 0);
+        lp.colUpperBound(weights[node], Q);
+    }
+
+    //Add rows
+    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
+        if(g.id(node)!=0) {
+            Lp::Expr eOut, eIn;
+            for (ListDigraph::OutArcIt arc(g, node); arc != INVALID; ++arc) {
+                eOut += cols[arc];
+            }
+            lp.addRow(eOut == 1);
+            for (ListDigraph::InArcIt arc(g, node); arc != INVALID; ++arc) {
+                eIn += cols[arc];
+            }
+            lp.addRow(eIn == 1);
+        }
+    }
+    lp.colLowerBound(weights[g.nodeFromId(0)], 0);
+    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
+        if(g.id(node)!=0) {
+            for (ListDigraph::InArcIt arc(g, node); arc != INVALID; ++arc) {
+                Lp::Expr e;
+                e = (weights[g.source(arc)] + q[node]);
+                lp.addRow(weights[node]<=BIG_VALUE*(1-cols[arc])+e);
+                lp.addRow(weights[node]+BIG_VALUE*(1-cols[arc])>=e);
+            }
+       }
+    }
+    for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
+        lp.objCoeff(cols[arc], c[arc]);
+    }
+    lp.min();
+    lp.solve();
+    cout << "CHECK LP primal: " << lp.solValue() << endl;
+    cout << "Elapsed: " << timer.realTime() << "s" << endl;
+}
+
+/*void VRP::printToEpsCheckLp(const string& filename){
+    Timer timer(true);
+    cout << "Printing to eps..." << flush;
+    ListDigraph::ArcMap<Color> arcColor(map, Color(0, 0, 0));
+    ListDigraph::ArcMap<double> arcWidth(map, 0.0);
+    for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
+        if()
+    }
+
+
+    for(int j=0; j<n; ++j) {
+        for(unsigned int k=0; k<paths[0][j].size(); ++k){
+            arcWidth[paths[0][j][k]]=0.1;
+        }
+    }
+    ListDigraph::NodeMap<double> nodeSize(map, 0.0);
+    ListDigraph::NodeMap<int> nodeShape(map, 0);
+    ListDigraph::NodeMap<Color> nodeColor(map, Color(0, 0, 255));
+    ListDigraph::Node node=INVALID;
+    for(int i = 1; i < n; ++i) {
+        node=map.nodeFromId(depotAndCostumers[i]);
+        nodeSize[node] = 0.2;
+    }
+    nodeShape[map.nodeFromId(depotAndCostumers[0])]=1;
+    nodeSize[map.nodeFromId(depotAndCostumers[0])]=0.5;
+
+    graphToEps(map, filename)
+            .coords(coords)
+            .arcWidths(arcWidth)
+            .arcColors(arcColor)
+            .scale(200)
+            .nodeSizes(nodeSize)
+            .nodeShapes(nodeShape)
+            .nodeColors(nodeColor)
+            .run();
+    cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
+}*/

@@ -8,7 +8,7 @@
 using namespace std;
 using namespace lemon;
 
-#define IS_MAP false
+#define IS_MAP true
 
 int main(){
     #if IS_MAP
@@ -24,5 +24,7 @@ int main(){
 
     vrp.createMasterLP();
     vrp.solveMasterLP();
+
+    vrp.checkLP();
     return 0;
 }
