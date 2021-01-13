@@ -70,8 +70,6 @@ VRP::VRP(bool isMap, const string& inputName)   :
     coords{lon, lat},
     c{g},
     t{g},
-    //a{g},
-    //b{g},
     q{g},
     startCols{g},
     nodeRows{g}
@@ -88,6 +86,8 @@ VRP::VRP(bool isMap, const string& inputName)   :
         cout << "Elapsed: " << timer.realTime() << "s" << endl;
         mapNodesNumber = countNodes(map);
         mapArcsNumber = countArcs(map);
+
+        Q=100;
         cout << "Number of nodes: " << mapNodesNumber << endl;
         cout << "Number of arcs: " << mapArcsNumber << endl << endl;
     } else {
@@ -95,7 +95,6 @@ VRP::VRP(bool isMap, const string& inputName)   :
         cout << "Reading the graph.. " << flush;
         digraphReader(g, inputName)
                 .arcMap("c", c).arcMap("t", t)
-                //.nodeMap("a",a).nodeMap("b",b)
                 .nodeMap("q", q)
                 .attribute("Q", Q)
                 .run();
@@ -145,7 +144,6 @@ void VRP::generateCostumersGraph(int costumerCnt)
     for(ListDigraph::NodeIt node(g); node != INVALID; ++node){
         q[node]=random[20]+1;
     }
-    Q=100;
     cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
@@ -339,22 +337,19 @@ void VRP::printMasterLPSolution()
             cout << masterLP.primal(startCols[node]) << endl;
         }
     }
+    cout.precision(12);
     cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
     cout << "Total cost: " << masterLP.primal(totalCostCol) << endl;
 
-    //printMasterLPMatrix();
-    int dualCost=0;
+
+    //Calculate dual cost
+    double dualCost=0;
     for(Lp::RowIt row(masterLP); row!=INVALID; ++row){
         dualCost+=masterLP.dual(row);
     }
     dualCost-=masterLP.dual(vehicleNumberRow);
     dualCost-=masterLP.dual(totalCostRow);
     cout << "Dual cost: " << dualCost << endl;
-    /*if(abs(masterLP.primal(totalCostCol)-dualCost)<1){
-        cout << "DUAL OK" << endl;
-    } else {
-        cout << "WRONG DUAL" << endl;
-    }*/
     cout << endl;
 }
 
@@ -380,7 +375,7 @@ public:
         } else {
             pi_s = vrp.masterLP.dual(vrp.nodeRows[sNode]);
         }
-        int cost = 0;
+        double cost = 0;
         cost = (1 - pi_c) * vrp.c[
                 vrp.arcs[vrp.g.id(sNode)][vrp.g.id(tNode)]
         ] - pi_s;
@@ -396,13 +391,12 @@ void VRP::solveMasterLP()
     do{
         ++itCnt;
         masterLP.solve();
-        masterLP.solve();
         myAssert(masterLP.primalType()==Lp::OPTIMAL, "Not optimal");
         //printMasterLPMatrix();
         printMasterLPSolution();
-    } while(generateColumn() && itCnt<30);
+    } while(generateColumn() && itCnt<1000);
 
-    cout << "Elapsed: " << timer.realTime() << "s" << endl;
+    cout << "Master LP solved, elapsed: " << timer.realTime() << "s" << endl;
 }
 
 class Label {
@@ -647,6 +641,7 @@ void VRP::printMasterLPMatrix(){
     cout << endl;
 }
 
+
 void VRP::checkLP() {
     Timer timer(true);
     cout << "Check LP started: " << endl;
@@ -680,7 +675,7 @@ void VRP::checkLP() {
             lp.addRow(eIn == 1);
         }
     }
-    lp.colLowerBound(weights[g.nodeFromId(0)], 0);
+    lp.colUpperBound(weights[g.nodeFromId(0)], 0);
     for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
         if(g.id(node)!=0) {
             for (ListDigraph::InArcIt arc(g, node); arc != INVALID; ++arc) {
@@ -699,8 +694,8 @@ void VRP::checkLP() {
     cout << "CHECK LP primal: " << lp.solValue() << endl;
     cout << "Elapsed: " << timer.realTime() << "s" << endl;
 }
-
-/*void VRP::printToEpsCheckLp(const string& filename){
+/*
+void VRP::printToEpsCheckLp(const string& filename){
     Timer timer(true);
     cout << "Printing to eps..." << flush;
     ListDigraph::ArcMap<Color> arcColor(map, Color(0, 0, 0));

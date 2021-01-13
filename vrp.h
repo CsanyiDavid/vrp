@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <lemon/arg_parser.h>
 #include <lemon/color.h>
 #include <lemon/dijkstra.h>
 #include <lemon/dim2.h>
@@ -121,7 +122,7 @@ public:
     void printMasterLPMatrix();
 
     void checkLP();
-    void printToEpsCheckLp();
+    //void printToEpsCheckLp();
 
     friend class MarginalCost;
     friend class Label;

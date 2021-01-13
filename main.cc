@@ -8,12 +8,12 @@
 using namespace std;
 using namespace lemon;
 
-#define IS_MAP true
+#define IS_MAP false
 
 int main(){
     #if IS_MAP
         VRP vrp(IS_MAP, "hun-sc-ncn.lgf");
-        vrp.generateCostumersGraph(10);
+        vrp.generateCostumersGraph(25);
         vrp.printCostumerCoordinates();
         vrp.shortestPaths();
         vrp.printShortestPathsFromDepot();
@@ -22,8 +22,8 @@ int main(){
         VRP vrp(IS_MAP, "inp.lgf");
     #endif
 
-    vrp.createMasterLP();
-    vrp.solveMasterLP();
+    //vrp.createMasterLP();
+    //vrp.solveMasterLP();
 
     vrp.checkLP();
     return 0;
