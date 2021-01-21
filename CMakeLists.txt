@@ -14,5 +14,8 @@ TARGET_LINK_LIBRARIES(vrp lemon)
 ADD_EXECUTABLE(debug debug.cc)
 TARGET_LINK_LIBRARIES(debug lemon)
 
+ADD_EXECUTABLE(clp clp.cc)
+TARGET_LINK_LIBRARIES(clp lemon)
+
 #ADD_EXECUTABLE(in_gen input_generator.cc)
 #TARGET_LINK_LIBRARIES(in_gen lemon)

@@ -20,7 +20,7 @@
 #define VRP_H
 
 #define BIG_VALUE 1000000000
-#define EPSILON 0.000001
+#define EPSILON 0.0001
 
 using namespace std;
 using namespace lemon;
@@ -89,10 +89,9 @@ private:
     Lp::Row totalCostRow;
 
     //Check Mip
-    Mip lp;
 
 public:
-    VRP(bool isMap, const string& inputName);
+    VRP(bool isMap, const string& inputName, int costumerCnt);
 
     void generateCostumersGraph(int costumerCnt);
 
@@ -121,8 +120,9 @@ public:
 
     void printMasterLPMatrix();
 
-    void checkLP();
-    //void printToEpsCheckLp();
+    void checkMIP(bool printEps=false);
+    void printToEpsCheckMIP(const string &, const Mip& mip,
+                            const ListDigraph::ArcMap<Mip::Col>& cols);
 
     friend class MarginalCost;
     friend class Label;
