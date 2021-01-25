@@ -153,7 +153,7 @@ void VRP::generateCostumersGraph(int costumerCnt)
         if(g.id(node)==0){
             q[node]=0;
         } else {
-            q[node] = random[20]+5;
+            q[node] = random[20]+1;
         }
         cout << q[node] << " ";
     }
@@ -409,7 +409,7 @@ void VRP::solveMasterLP()
         myAssert(masterLP.primalType()==Lp::OPTIMAL, "Not optimal");
         //printMasterLPMatrix();
         printMasterLPSolution();
-    } while(generateColumn() && itCnt<1000);
+    } while(generateColumn() && itCnt<10000);
 
     cout << "Master LP solved, elapsed: " << timer.realTime() << "s" << endl;
     cout << "User time: " << timer.userTime() << "s" << endl;
@@ -532,6 +532,8 @@ bool VRP::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels,
 bool VRP::generateColumn()
 {
     cout << "Generating column" << endl;
+    static int generationCnt=0;
+    ++generationCnt;
     Timer timer(true);
     MarginalCost mc{*this};
     ListDigraph::NodeMap<NodeLabels> nodeLabels(g);
@@ -541,9 +543,11 @@ bool VRP::generateColumn()
     int notExtendedCnt=0;
     extendLabel(nodeLabels, depot, mc);
 
+    int nextCheckDepotIndex=1;
+
     while(notExtendedCnt<n-1) {
         for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
-            if(g.id(node)==0){
+            if(g.id(node)==0){      //Ez miért volt 1-re állítva????!!
                 continue;
             }
             if(notExtendedCnt>=n-1){
@@ -551,6 +555,34 @@ bool VRP::generateColumn()
             }
             if(extendLabel(nodeLabels, node, mc)){
                 notExtendedCnt=0;
+                if(generationCnt<10){
+                    while(nextCheckDepotIndex<static_cast<int>
+                        (nodeLabels[depot].labelList.size()))
+                    {
+                        if(nodeLabels[depot].labelList[nextCheckDepotIndex].
+                                cost<-EPSILON)
+                        {
+                            cout << "Early exit!" << endl;
+                            cout << "Found min cost: "
+                                << nodeLabels[depot]
+                                    .labelList[nextCheckDepotIndex]
+                                    .cost << endl;
+                            cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
+                            addGeneratedColumn(nodeLabels[depot].
+                                    labelList[nextCheckDepotIndex]);
+                            return true;
+                        } else {
+                            ++nextCheckDepotIndex;
+                        }
+                    }
+                    if(generationCnt%50==0){
+                        for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
+                            if(masterLP.primal(col)<EPSILON){
+                                masterLP.erase(col);
+                            }
+                        }
+                    }
+                }
             } else {
                 ++notExtendedCnt;
             }
