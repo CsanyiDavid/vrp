@@ -4,6 +4,8 @@
 
 #include "vrp.h"
 
+extern int mySeed;
+
 using namespace std;
 using namespace lemon;
 
@@ -132,7 +134,7 @@ void VRP::generateCostumersGraph(int costumerCnt)
     depotAndCostumers.push_back(0);
     nodes.push_back(g.addNode());
 
-    Random random(42);
+    Random random(mySeed);
     for(int i = 1; i < n; ++i){
         depotAndCostumers.push_back(random[mapNodesNumber]);
         nodes.push_back(g.addNode());
@@ -151,7 +153,7 @@ void VRP::generateCostumersGraph(int costumerCnt)
         if(g.id(node)==0){
             q[node]=0;
         } else {
-            q[node] = random[20] + 1;
+            q[node] = random[20]+5;
         }
         cout << q[node] << " ";
     }
@@ -339,7 +341,7 @@ void VRP::printMasterLPSolution()
 {
     cout << "Master LP solution:" << endl;
     cout << "Number of added columns: " << cols.size() << endl;
-    for(Lp::Col col : cols){
+    /*for(Lp::Col col : cols){
         if(masterLP.primal(col)>EPSILON) {
             cout << masterLP.primal(col) << endl;
         }
@@ -349,7 +351,7 @@ void VRP::printMasterLPSolution()
             cout << g.id(node) << " . node: ";
             cout << masterLP.primal(startCols[node]) << endl;
         }
-    }
+    }*/
     cout.precision(12);
     cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
     cout << "Total cost: " << masterLP.primal(totalCostCol) << endl;
@@ -362,7 +364,7 @@ void VRP::printMasterLPSolution()
     }
     dualCost-=masterLP.dual(vehicleNumberRow);
     dualCost-=masterLP.dual(totalCostRow);
-    cout << "Dual cost: " << dualCost << endl;
+    //cout << "Dual cost: " << dualCost << endl;
     cout << endl;
 }
 
@@ -410,6 +412,7 @@ void VRP::solveMasterLP()
     } while(generateColumn() && itCnt<1000);
 
     cout << "Master LP solved, elapsed: " << timer.realTime() << "s" << endl;
+    cout << "User time: " << timer.userTime() << "s" << endl;
 }
 
 class Label {
@@ -706,6 +709,7 @@ void VRP::checkMIP(bool printEps)
     mip.solve();
     cout << "CHECK LP primal: " << mip.solValue() << endl;
     cout << "Elapsed: " << timer.realTime() << "s" << endl;
+    cout << "User time: " << timer.userTime() << "s" << endl;
 
     if(printEps){
         printToEpsCheckMIP("checkMIP.eps", mip, checkCols);
