@@ -64,7 +64,7 @@ double haversineDist(double lat1, double lon1, double lat2, double lon2){
 }
 
 //Read a Map and create graph if isMap, else read graph
-VRP::VRP(bool isMap, const string& inputName, int costumerCnt)   :
+VRP::VRP(bool isMap, const string& inputName)   :
     maxspeed{map},
     length{map},
     lat{map},
@@ -92,11 +92,6 @@ VRP::VRP(bool isMap, const string& inputName, int costumerCnt)   :
         Q=100;
         cout << "Number of nodes: " << mapNodesNumber << endl;
         cout << "Number of arcs: " << mapArcsNumber << endl << endl;
-
-        generateCostumersGraph(costumerCnt);
-        printCostumerCoordinates();
-        shortestPaths();
-        printShortestPathsFromDepot();
     } else {
         Timer timer(true);
         cout << "Reading the graph.. " << flush;
@@ -124,12 +119,22 @@ VRP::VRP(bool isMap, const string& inputName, int costumerCnt)   :
     }
 }
 
+void VRP::init(int costumerCnt)
+{
+    generateCostumersGraph(costumerCnt);
+    printCostumerCoordinates();
+    shortestPaths();
+    //printShortestPathsFromDepot();
+}
+
 void VRP::generateCostumersGraph(int costumerCnt)
 {
     Timer timer(true);
     cout << "Generate costumer graph.. " << flush;
     n=costumerCnt+1;
+    depotAndCostumers.resize(0);
     depotAndCostumers.reserve(n);
+    nodes.resize(0);
     nodes.reserve(n);
     depotAndCostumers.push_back(0);
     nodes.push_back(g.addNode());
@@ -139,6 +144,7 @@ void VRP::generateCostumersGraph(int costumerCnt)
         depotAndCostumers.push_back(random[mapNodesNumber]);
         nodes.push_back(g.addNode());
     }
+    arcs.resize(0);
     arcs.resize(n);
     for(int i = 0; i < n; ++i){
         arcs[i].resize(n);
@@ -153,7 +159,7 @@ void VRP::generateCostumersGraph(int costumerCnt)
         if(g.id(node)==0){
             q[node]=0;
         } else {
-            q[node] = random[20]+1;
+            q[node] = random[30]+1;
         }
         cout << q[node] << " ";
     }
@@ -220,6 +226,7 @@ void VRP::shortestPaths()
     cout << "Shortest paths..." << flush;
     ArcTravelTime travelTime(maxspeed, length);
 
+    paths.resize(0);
     paths.resize(n);
     for(int i=0; i<n; ++i){
         paths[i].resize(n);
@@ -406,13 +413,31 @@ void VRP::solveMasterLP()
     do{
         ++itCnt;
         masterLP.solve();
-        myAssert(masterLP.primalType()==Lp::OPTIMAL, "Not optimal");
+        //myAssert(masterLP.primalType()==Lp::OPTIMAL, "Not optimal");
+        switch(masterLP.primalType()) {
+            case 0:
+                cout << "undefined" << endl; break;
+            case 1:
+                cout << "infeasible" << endl; return;
+            case 2:
+                cout << "feasible" << endl; break;
+            case 3:
+                //cout << "optimal" << endl;
+                break;
+            case 4:
+                cout << "unbounded" << endl; break;
+        }
         //printMasterLPMatrix();
-        printMasterLPSolution();
+        //printMasterLPSolution();
     } while(generateColumn() && itCnt<10000);
 
     cout << "Master LP solved, elapsed: " << timer.realTime() << "s" << endl;
     cout << "User time: " << timer.userTime() << "s" << endl;
+    cout << "Number of added columns: " << cols.size() << endl;
+    cout.precision(12);
+    cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
+    cout << "Total cost: " << masterLP.primal(totalCostCol) << endl;
+    cout << endl;
 }
 
 class Label {
@@ -531,7 +556,7 @@ bool VRP::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels,
 
 bool VRP::generateColumn()
 {
-    cout << "Generating column" << endl;
+    //cout << "Generating column" << endl;
     static int generationCnt=0;
     ++generationCnt;
     Timer timer(true);
@@ -555,19 +580,19 @@ bool VRP::generateColumn()
             }
             if(extendLabel(nodeLabels, node, mc)){
                 notExtendedCnt=0;
-                if(generationCnt<10){
+                if(generationCnt<1000){
                     while(nextCheckDepotIndex<static_cast<int>
                         (nodeLabels[depot].labelList.size()))
                     {
                         if(nodeLabels[depot].labelList[nextCheckDepotIndex].
                                 cost<-EPSILON)
                         {
-                            cout << "Early exit!" << endl;
-                            cout << "Found min cost: "
-                                << nodeLabels[depot]
-                                    .labelList[nextCheckDepotIndex]
-                                    .cost << endl;
-                            cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
+                            //cout << "Early exit!" << endl;
+                            //cout << "Found min cost: "
+                            //    << nodeLabels[depot]
+                            //        .labelList[nextCheckDepotIndex]
+                            //        .cost << endl;
+                            //cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
                             addGeneratedColumn(nodeLabels[depot].
                                     labelList[nextCheckDepotIndex]);
                             return true;
@@ -575,13 +600,13 @@ bool VRP::generateColumn()
                             ++nextCheckDepotIndex;
                         }
                     }
-                    if(generationCnt%50==0){
+                    /*if(generationCnt%50==0){
                         for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
                             if(masterLP.primal(col)<EPSILON){
                                 masterLP.erase(col);
                             }
                         }
-                    }
+                    }*/
                 }
             } else {
                 ++notExtendedCnt;
@@ -600,8 +625,8 @@ bool VRP::generateColumn()
             //cout << "Nope" << endl;
         }
     }
-    cout << "Found min cost: " << minCost << endl;
-    cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
+    //cout << "Found min cost: " << minCost << endl;
+    //cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
     if(minCost<-EPSILON){
         addGeneratedColumn(nodeLabels[depot].labelList[minIndex]);
         return true;
@@ -627,9 +652,9 @@ void VRP::addGeneratedColumn(const Label& l)
     }
     masterLP.colLowerBound(col, 0.0);
     int currCost=0;
-    cout << "Added column's nodes:  ";
+    //cout << "Added column's nodes:  ";
     for(int i=0; i<nodeCount; ++i){
-        cout << g.id(currRouteNodes[i]) << " ";
+        //cout << g.id(currRouteNodes[i]) << " ";
         if(g.id(currRouteNodes[i]) != 0) {
             masterLP.coeff(nodeRows[currRouteNodes[i]], col, 1.0);
         }
@@ -639,7 +664,7 @@ void VRP::addGeneratedColumn(const Label& l)
             currCost+=c[routes[routes.size()-1][i-1]];
         }
     }
-    cout << endl;
+    //cout << endl;
     masterLP.coeff(vehicleNumberRow, col, 1);
     masterLP.coeff(totalCostRow, col, currCost);
     masterLP.objCoeff(col, currCost);
@@ -692,7 +717,7 @@ void VRP::printMasterLPMatrix(){
 void VRP::checkMIP(bool printEps)
 {
     Timer timer(true);
-    cout << "Check LP started: " << endl;
+    cout << "Check MIP started: " << endl;
 
     Mip mip;
     //Add cols
@@ -790,4 +815,44 @@ void VRP::printToEpsCheckMIP(const string& filename, const Mip& mip,
             .nodeColors(nodeColor)
             .run();
     cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
+}
+
+void VRP::branchAndBound()
+{
+    cout << "Branch and bound started: " << endl;
+    int branchedNodes=0;
+    createMasterLP();
+    solveMasterLP();
+    recursiveBranch(branchedNodes);
+    cout << "Visited nodes: " << branchedNodes << endl;
+}
+
+bool isWhole(double x){
+    if(x-floor(x)<EPSILON || ceil(x)-x<EPSILON){
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void VRP::recursiveBranch(int& branchedNodes)
+{
+    ++branchedNodes;
+    double vehicleNumber=masterLP.primal(vehicleNumberCol);
+    Lp::Row tempRow=INVALID;
+    if(!isWhole(vehicleNumber)){
+        tempRow=masterLP.addRow(vehicleNumberCol<=floor(vehicleNumber));
+        cout << "Added: vehicleNumberCol <= " << floor(vehicleNumber) << endl;
+        solveMasterLP();
+        recursiveBranch(branchedNodes);
+        masterLP.erase(tempRow);
+
+        tempRow=masterLP.addRow(vehicleNumberCol>=ceil(vehicleNumber));
+        cout << "Added: vehicleNumberCol >= " << ceil(vehicleNumber) << endl;
+        solveMasterLP();
+        recursiveBranch(branchedNodes);
+        masterLP.erase(tempRow);
+    } else {
+
+    }
 }

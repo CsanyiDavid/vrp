@@ -91,7 +91,9 @@ private:
     //Check Mip
 
 public:
-    VRP(bool isMap, const string& inputName, int costumerCnt);
+    VRP(bool isMap, const string& inputName);
+
+    void init(int costumerCnt);
 
     void generateCostumersGraph(int costumerCnt);
 
@@ -123,6 +125,10 @@ public:
     void checkMIP(bool printEps=false);
     void printToEpsCheckMIP(const string &, const Mip& mip,
                             const ListDigraph::ArcMap<Mip::Col>& cols);
+
+    void branchAndBound();
+
+    void recursiveBranch(int&  branchedNodes);
 
     friend class MarginalCost;
     friend class Label;
