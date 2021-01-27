@@ -88,6 +88,12 @@ private:
     Lp::Row vehicleNumberRow;
     Lp::Row totalCostRow;
 
+    //Best solution
+    ListDigraph::ArcMap<double> arcUse;
+    double bestCost=BIG_VALUE;
+    vector<double> bestSolutionColIndexs;
+    ListDigraph::NodeMap<double> bestSolutionStartCols;
+
     //Check Mip
 
 public:
@@ -111,7 +117,7 @@ public:
 
     void printMasterLPSolution();
 
-    void solveMasterLP();
+    bool solveMasterLP();
 
     bool extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels, const ListDigraph::Node& node,
                      MarginalCost& mc);
@@ -129,6 +135,8 @@ public:
     void branchAndBound();
 
     void recursiveBranch(int&  branchedNodes);
+
+    void calculateArcUse();
 
     friend class MarginalCost;
     friend class Label;

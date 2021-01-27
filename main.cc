@@ -36,7 +36,7 @@ int main(){
          if(input=="exit"){
              break;
          } else if(input=="init") {
-             cout << "Cnt: ";
+             cout << "cnt: ";
              cin >> costumerCnt;
              cout << "seed: ";
              cin >> mySeed;
@@ -46,11 +46,14 @@ int main(){
             vrp.branchAndBound();
          } else if(input=="check") {
              vrp.checkMIP();
+         }else if(input=="print"){
+             vrp.printToEps("OUT.eps");
          } else if(input=="help"){
              cout << "exit" << endl;
              cout << "init" << endl;
              cout << "run" << endl;
              cout << "check" << endl;
+             cout << "print" << endl;
              cout << "help" << endl;
          } else {
              cout << "unkown command" << endl;
