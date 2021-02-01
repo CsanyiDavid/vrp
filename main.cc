@@ -6,6 +6,7 @@
 #include "vrp.h"
 
 int mySeed;
+int myMaxWeight;
 
 using namespace std;
 using namespace lemon;
@@ -33,28 +34,41 @@ int main(){
     while(true){
         cout << endl << " >> ";
          cin >> input;
-         if(input=="exit"){
+         if(input=="exit" || input=="e"){
              break;
-         } else if(input=="init") {
+         } else if(input=="init" || input=="i") {
              cout << "cnt: ";
              cin >> costumerCnt;
              cout << "seed: ";
              cin >> mySeed;
+             cout << "max weight: ";
+             cin >> myMaxWeight;
              cout << endl;
              vrp.init(costumerCnt);
-         } else if(input=="run") {
-            vrp.branchAndBound();
-         } else if(input=="check") {
+         } else if(input=="run" || input=="r") {
+             vrp.branchAndBound();
+         } else if(input=="initrun" || input=="ir"){
+             cout << "cnt: ";
+             cin >> costumerCnt;
+             cout << "seed: ";
+             cin >> mySeed;
+             cout << "max weight: ";
+             cin >> myMaxWeight;
+             cout << endl;
+             vrp.init(costumerCnt);
+             vrp.branchAndBound();
+         } else if(input=="check" || input=="c") {
              vrp.checkMIP();
-         }else if(input=="print"){
+         }else if(input=="print" || input=="p"){
              vrp.printToEps("OUT.eps");
-         } else if(input=="help"){
-             cout << "exit" << endl;
-             cout << "init" << endl;
-             cout << "run" << endl;
-             cout << "check" << endl;
-             cout << "print" << endl;
-             cout << "help" << endl;
+         } else if(input=="help" || input=="h"){
+             cout << "exit (e)" << endl;
+             cout << "init (i)" << endl;
+             cout << "run (r)" << endl;
+             cout << "initrun (ir)" << endl;
+             cout << "check (c)" << endl;
+             cout << "print (p)" << endl;
+             cout << "help (h)" << endl;
          } else {
              cout << "unkown command" << endl;
          };

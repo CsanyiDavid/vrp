@@ -14,6 +14,7 @@
 #include <lemon/random.h>
 #include <lemon/time_measure.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 #ifndef VRP_H
@@ -91,6 +92,7 @@ private:
     //Best solution
     ListDigraph::ArcMap<double> arcUse;
     double bestCost=BIG_VALUE;
+    int bestSolutionVehicle;
     vector<double> bestSolutionColIndexs;
     ListDigraph::NodeMap<double> bestSolutionStartCols;
 
@@ -137,6 +139,8 @@ public:
     void recursiveBranch(int&  branchedNodes);
 
     void calculateArcUse();
+
+    void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts);
 
     friend class MarginalCost;
     friend class Label;

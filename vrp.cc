@@ -5,6 +5,7 @@
 #include "vrp.h"
 
 extern int mySeed;
+extern int myMaxWeight;
 
 using namespace std;
 using namespace lemon;
@@ -162,7 +163,7 @@ void VRP::generateCostumersGraph(int costumerCnt)
         if(g.id(node)==0){
             q[node]=0;
         } else {
-            q[node] = random[30]+1;
+            q[node] = random[myMaxWeight]+1;
         }
         cout << q[node] << " ";
     }
@@ -177,7 +178,7 @@ void VRP::printToEps(const string& filename){
     ListDigraph::ArcMap<double> arcWidth(map, 0.035);
     for(unsigned int i=0; i<bestSolutionColIndexs.size(); ++i){
         int colIndex=bestSolutionColIndexs[i];
-        for(int arcIndex=0; arcIndex<routes[colIndex].size(); ++arcIndex){
+        for(unsigned int arcIndex=0; arcIndex<routes[colIndex].size(); ++arcIndex){
             ListDigraph::Arc arc=routes[colIndex][arcIndex];
             for(unsigned int a=0; a<paths[g.id(g.source(arc))][g.id(g.target(arc))].size(); ++a){
                 ListDigraph::Arc currArc;
@@ -327,6 +328,10 @@ void VRP::printShortestPathsFromDepot()
 
 void VRP::createMasterLP()
 {
+    masterLP.clear();
+    cols.resize(0);
+    routes.resize(0);
+
     //Add cols
     for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
         if(g.id(node)!=0){
@@ -441,6 +446,9 @@ bool VRP::solveMasterLP()
     int itCnt=0;
     do{
         ++itCnt;
+        if(cols.size()%1000==0){
+            cout << "Added cols number: " << cols.size() << endl;
+        }
         masterLP.solve();
         //myAssert(masterLP.primalType()==Lp::OPTIMAL, "Not optimal");
         switch(masterLP.primalType()) {
@@ -458,7 +466,7 @@ bool VRP::solveMasterLP()
         }
         //printMasterLPMatrix();
         //printMasterLPSolution();
-    } while(generateColumn() && itCnt<10000);
+    } while(generateColumn() && itCnt<4000);
 
     cout << "Master LP solved, elapsed: " << timer.realTime() << "s" << endl;
     cout << "User time: " << timer.userTime() << "s" << endl;
@@ -603,7 +611,7 @@ bool VRP::generateColumn()
 
     while(notExtendedCnt<n-1) {
         for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
-            if(g.id(node)==0){      //Ez miért volt 1-re állítva????!!
+            if(g.id(node)==0){
                 continue;
             }
             if(notExtendedCnt>=n-1){
@@ -631,13 +639,6 @@ bool VRP::generateColumn()
                             ++nextCheckDepotIndex;
                         }
                     }
-                    /*if(generationCnt%50==0){
-                        for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
-                            if(masterLP.primal(col)<EPSILON){
-                                masterLP.erase(col);
-                            }
-                        }
-                    }*/
                 }
             } else {
                 ++notExtendedCnt;
@@ -683,9 +684,9 @@ void VRP::addGeneratedColumn(const Label& l)
     }
     masterLP.colLowerBound(col, 0.0);
     int currCost=0;
-    //cout << "Added column's nodes:  ";
+    cout << "Added column's nodes:  ";
     for(int i=0; i<nodeCount; ++i){
-        //cout << g.id(currRouteNodes[i]) << " ";
+        cout << g.id(currRouteNodes[i]) << " ";
         if(g.id(currRouteNodes[i]) != 0) {
             masterLP.coeff(nodeRows[currRouteNodes[i]], col, 1.0);
         }
@@ -699,6 +700,14 @@ void VRP::addGeneratedColumn(const Label& l)
     masterLP.coeff(vehicleNumberRow, col, 1);
     masterLP.coeff(totalCostRow, col, currCost);
     masterLP.objCoeff(col, currCost);
+
+    for(unsigned int i=0; i<routes[routes.size()-1].size(); ++i) {
+        cout << "(" << g.id(g.source(routes[routes.size()-1][i])) << " ";
+        cout << g.id(g.target(routes[routes.size()-1][i])) << ")  ";
+    }
+
+    int temp;
+    cin >> temp;
 }
 
 void VRP::printMasterLPMatrix(){
@@ -795,7 +804,19 @@ void VRP::checkMIP(bool printEps)
     }
     mip.min();
     mip.solve();
-    cout << "CHECK LP primal: " << mip.solValue() << endl;
+    switch(mip.type()) {
+        case 0:
+            cout << "undefined" << endl; break;
+        case 1:
+            cout << "infeasible" << endl; break;
+        case 2:
+            cout << "feasible" << endl; break;
+        case 3:
+            cout << "optimal" << endl; break;
+        case 4:
+            cout << "unbounded" << endl; break;
+    }
+    cout << "CHECK MIP primal: " << mip.solValue() << endl;
     cout << "Elapsed: " << timer.realTime() << "s" << endl;
     cout << "User time: " << timer.userTime() << "s" << endl;
 
@@ -851,13 +872,17 @@ void VRP::printToEpsCheckMIP(const string& filename, const Mip& mip,
 void VRP::branchAndBound()
 {
     Timer timer(true);
+    bestCost=BIG_VALUE;
     cout << "Branch and bound started: " << endl;
     int branchedNodes=0;
     createMasterLP();
-    solveMasterLP();
     recursiveBranch(branchedNodes);
+
+    cout << "Arc count of g: " << countArcs(g) << endl;
     cout << "Visited nodes: " << branchedNodes << endl;
     cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
+    cout << "Solution: " << bestCost << endl;
+    cout << "Vehicle count: " << bestSolutionVehicle << endl;
 }
 
 bool isWhole(double x){
@@ -871,23 +896,27 @@ bool isWhole(double x){
 void VRP::recursiveBranch(int& branchedNodes)
 {
     ++branchedNodes;
+    cout << "New branching node: " << branchedNodes << endl;
+    if(!solveMasterLP()){
+        return;
+    } else if(masterLP.primal()>bestCost) {
+        cout << "BOUND" << endl;
+        return;
+    }
+
     double vehicleNumber=masterLP.primal(vehicleNumberCol);
     Lp::Row tempRow=INVALID;
     if(!isWhole(vehicleNumber)){
         //branch on vehicle number
         tempRow=masterLP.addRow(vehicleNumberCol<=floor(vehicleNumber));
-        cout << "Added: vehicleNumberCol <= " << floor(vehicleNumber) << endl;
-        if(solveMasterLP()) {
-            recursiveBranch(branchedNodes);
-        }
-        cout << "Remove vehivleNumberCol <= " << floor(vehicleNumber) << endl;
+        cout << "Add: vehicleNumberCol <= " << floor(vehicleNumber) << endl;
+        recursiveBranch(branchedNodes);
+        cout << "Remove vehicleNumberCol <= " << floor(vehicleNumber) << endl;
         masterLP.erase(tempRow);
 
         tempRow=masterLP.addRow(vehicleNumberCol>=ceil(vehicleNumber));
-        cout << "Added: vehicleNumberCol >= " << ceil(vehicleNumber) << endl;
-        if(solveMasterLP()) {
-            recursiveBranch(branchedNodes);
-        }
+        cout << "Add: vehicleNumberCol >= " << ceil(vehicleNumber) << endl;
+        recursiveBranch(branchedNodes);
         cout << "Remove: vehicleNumberCol >= " << ceil(vehicleNumber) << endl;
         masterLP.erase(tempRow);
     } else {
@@ -896,22 +925,49 @@ void VRP::recursiveBranch(int& branchedNodes)
         double maxFractionalUse=0.0;
         ListDigraph::Arc arcToBranch=INVALID;
         for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
-            if(!isWhole(arcUse[arc]) && arcUse[arc]>maxFractionalUse){
-                maxFractionalUse=arcUse[arc];
-                arcToBranch=arc;
+            if(!isWhole(arcUse[arc])){
+                cout << arcUse[arc] << "  ";
+                if(arcUse[arc]>maxFractionalUse){
+                    maxFractionalUse=arcUse[arc];
+                    arcToBranch=arc;
+                }
             }
         }
+        //myAssert(arcUse[arcToBranch]<1, "Arc with >1 use");
+        cout  << endl;
         if(arcToBranch==INVALID){
+            cout.precision(12);
+
+            cout << "arc 169: " << arcUse[g.arcFromId(169)] << endl;
+            cout << g.id(g.source(g.arcFromId(169))) << " " << g.id(g.target(g.arcFromId(169))) << endl;
+            cout << masterLP.primal(startCols[g.source(g.arcFromId(169))]) << " ";
+            cout << masterLP.primal(startCols[g.target(g.arcFromId(169))]) << endl;
+
             cout << "Whole solution found with cost: ";
             cout << masterLP.primal();
+
             if(masterLP.primal()<bestCost){
-                cout << "Better" << endl;
+                cout << " Better" << endl;
                 bestCost=masterLP.primal();
+                bestSolutionVehicle=masterLP.primal(vehicleNumberCol);
                 bestSolutionColIndexs.resize(0);
                 for(unsigned int i=0; i<cols.size(); ++i){
+                    if(masterLP.primal(cols[i])>EPSILON) {
+                        cout << i << " .col,";
+                        cout << " value: ";
+                        cout << masterLP.primal(cols[i]) << endl;
+                        cout << "Route: ";
+                        for(unsigned int ii=0; ii<routes[i].size(); ++ii){
+                            cout << "(" << g.id(g.source(routes[i][ii])) << " ";
+                            cout << g.id(g.target(routes[i][ii])) <<")  ";
+                        }
+                        cout << endl;
+                    }
+                }
+                for(unsigned int i=0; i<cols.size(); ++i){
                     if(masterLP.primal(cols[i])>EPSILON){
-                        myAssert(masterLP.primal(cols[i])<1.0+EPSILON, "Not 0 and 1 col");
-                        myAssert(masterLP.primal(cols[i])>1.0-EPSILON, "Not 0 and 1 col");
+                        myAssert(masterLP.primal(cols[i])<1.0+EPSILON, ">1+eps col");
+                        myAssert(masterLP.primal(cols[i])>1.0-EPSILON, "<1-eps nonzero col");
                         bestSolutionColIndexs.push_back(i);
                     }
                 }
@@ -919,16 +975,91 @@ void VRP::recursiveBranch(int& branchedNodes)
                     bestSolutionStartCols[node]=masterLP.primal(startCols[node]);
                 }
             } else {
-                cout << "Worse" << endl;
+                cout << " Worse" << endl;
             }
         } else {
             //Branch on this arc
-            cout << "Branch on arc" << endl;
-            //arc=0
+            cout << "Branch on arc with use: ";
+            cout << arcUse[arcToBranch] << endl;
+
+            //0
+            cout << "Add: arc =0" << endl;
+            ListDigraph copy;
+            digraphCopy(g, copy).run();   //save the original graph
+            int originalArcCount=countArcs(g); //save original arc count
+            ListDigraph::Node sourceNode=g.source(arcToBranch);
+            ListDigraph::Node targetNode=g.target(arcToBranch);
+            g.erase(arcToBranch);
+            vector<pair<int, int>> changedCosts;    // <index, oldCost>
+            changeObjCoeffs(arcToBranch, changedCosts);
+            int startOldCost=-1;
+            if(g.id(sourceNode)==0){
+                startOldCost=masterLP.objCoeff(startCols[targetNode]);
+                masterLP.objCoeff(startCols[targetNode], BIG_VALUE);
+            } else if(g.id(targetNode)==0){
+                startOldCost=masterLP.objCoeff(startCols[sourceNode]);
+                masterLP.objCoeff(startCols[sourceNode], BIG_VALUE);
+            }
+            recursiveBranch(branchedNodes);
+            for(unsigned int i=0; i<changedCosts.size(); ++i){
+                masterLP.objCoeff(cols[changedCosts[i].first], changedCosts[i].second);
+            }
+            if(g.id(sourceNode)==0){
+                masterLP.objCoeff(startCols[targetNode], startOldCost);
+            } else if(g.id(targetNode)==0){
+                masterLP.objCoeff(startCols[sourceNode], startOldCost);
+            }
+            digraphCopy(copy, g).run();
+            cout << "Remove: arc =0" << endl;
 
 
             //arc=1
+            cout << "Add: arc =1" << endl;
+            changedCosts.resize(0);
+            for(ListDigraph::OutArcIt arc(g, sourceNode); arc!=INVALID; ++arc){
+                changeObjCoeffs(arc, changedCosts);
+                g.erase(arc);
+            }
+            for(ListDigraph::InArcIt arc(g, targetNode); arc!=INVALID;){
+                ListDigraph::Arc a=arc;
+                ++arc;
+                changeObjCoeffs(a, changedCosts);
+                g.erase(a);
+            }
+            int startSourceOldCost=-1;
+            int startTargetOldCost=-1;
+            if(g.id(sourceNode)!=0) {
+                startSourceOldCost = masterLP.objCoeff(startCols[sourceNode]);
+                masterLP.objCoeff(startCols[sourceNode], BIG_VALUE);
+            }
+            if(g.id(targetNode)!=0){
+                startTargetOldCost = masterLP.objCoeff(startCols[targetNode]);
+                masterLP.objCoeff(startCols[targetNode], BIG_VALUE);
+            }
+            recursiveBranch(branchedNodes);
+            for(unsigned int i=0; i<changedCosts.size(); ++i){
+                masterLP.objCoeff(cols[changedCosts[i].first], changedCosts[i].second);
+            }
+            if(g.id(sourceNode)!=0){
+                masterLP.objCoeff(startCols[targetNode], startSourceOldCost);
+            } else if(g.id(targetNode)!=0){
+                masterLP.objCoeff(startCols[sourceNode], startTargetOldCost);
+            }
+            digraphCopy(copy, g).run();
+            myAssert(countArcs(g)==originalArcCount, "Arc(s) vanished!");
+            cout << "Remove: arc =1" << endl;
+        }
+    }
+}
 
+void VRP::changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts)
+{
+    for(unsigned int i=0; i<cols.size(); ++i){
+        if(masterLP.coeff(nodeRows[g.source(arc)], cols[i])==1
+           && masterLP.coeff(nodeRows[g.target(arc)], cols[i])==1)
+        {
+            changedCosts.push_back(pair<int, int>(i, masterLP.objCoeff(cols[i])));
+            masterLP.objCoeff(cols[i], BIG_VALUE);
         }
     }
 }
