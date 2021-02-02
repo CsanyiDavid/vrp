@@ -25,6 +25,7 @@ int main()
         nodes.push_back(g.addNode());
     }
     ListDigraph::Arc arc;
+    g.addArc(nodes[2], nodes[3]);
     arc=g.addArc(nodes[0], nodes[1]);
     ListDigraph copy;
     digraphCopy(g, copy).run();
@@ -43,4 +44,8 @@ int main()
     cout << countNodes(copy) << endl;
     cout << countArcs(g) << endl;
     cout << countArcs(copy) << endl;
+    g.addArc(nodes[3], nodes[4]);
+    digraphCopy(copy, g).run();
+    cout << g.id(g.source(arc)) << " " << g.id(g.target(arc)) << endl;
+    cout << copy.id(copy.source(arc)) << " " << copy.id(copy.target(arc)) << endl;
 }

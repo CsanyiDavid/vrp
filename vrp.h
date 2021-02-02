@@ -82,6 +82,7 @@ private:
     Lp masterLP;
     vector<Lp::Col> cols;
     vector<vector<ListDigraph::Arc>> routes;
+    vector<vector<ListDigraph::Node>> routeNodes;
     ListDigraph::NodeMap<Lp::Col> startCols;
     ListDigraph::NodeMap<Lp::Row> nodeRows;
     Lp::Col vehicleNumberCol;
@@ -127,6 +128,8 @@ public:
     bool generateColumn();
 
     void addGeneratedColumn(const Label& l);
+
+    void printRoutes(int index=-1);
 
     void printMasterLPMatrix();
 
