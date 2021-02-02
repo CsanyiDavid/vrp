@@ -66,8 +66,16 @@ int main(){
              vrp.checkMIP();
          }else if(input=="print" || input=="p") {
              vrp.printToEps("OUT.eps");
-         } else if(input=="printroutes" || input=="pr"){
+         } else if(input=="printroutes" || input=="pr") {
              vrp.printRoutes();
+         } else if(input=="printcost" || input=="pc"){
+             int sId;
+             int tId;
+             cout << "Source ID: ";
+             cin >> sId;
+             cout << "Target ID: ";
+             cin >> tId;
+             vrp.printCost(sId, tId);
          } else if(input=="help" || input=="h"){
              cout << "exit (e): \t exit from the program" << endl;
              cout << "init (i): \t initialize the problem with costumer count, random seed" << endl;

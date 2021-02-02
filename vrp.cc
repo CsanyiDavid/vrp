@@ -447,7 +447,7 @@ bool VRP::solveMasterLP()
     int itCnt=0;
     do{
         ++itCnt;
-        if(cols.size()%1000==0){
+        if(cols.size()%1000==0 && cols.size()>0){
             cout << "Added cols number: " << cols.size() << endl;
         }
         masterLP.solve();
@@ -895,10 +895,11 @@ void VRP::branchAndBound()
     cout << endl;
     cout << "Finished" << endl;
     cout << "Arc count of g: " << countArcs(g) << endl;
-    cout << "Visited branching nodes: " << branchedNodes << endl;
     cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
     cout << "Solution: " << bestCost << endl;
     cout << "Vehicle count: " << bestSolutionVehicle << endl;
+    cout << "Number of added cols: " << cols.size() << endl;
+    cout << "Visited branching nodes: " << branchedNodes << endl;
 }
 
 bool isWhole(double x){
@@ -996,9 +997,10 @@ void VRP::recursiveBranch(int& branchedNodes)
             int originalArcCount=countArcs(g); //save original arc count
             ListDigraph::Node sourceNode=g.source(arcToBranch);
             ListDigraph::Node targetNode=g.target(arcToBranch);
-            g.erase(arcToBranch);
+            int originalArcCost=c[arcToBranch];
             vector<pair<int, int>> changedCosts;    // <index, oldCost>
             changeObjCoeffs(arcToBranch, changedCosts);
+            g.erase(arcToBranch);
             int startOldCost=-1;
             if(g.id(sourceNode)==0){
                 startOldCost=masterLP.objCoeff(startCols[targetNode]);
@@ -1017,6 +1019,7 @@ void VRP::recursiveBranch(int& branchedNodes)
                 masterLP.objCoeff(startCols[sourceNode], startOldCost);
             }
             arcs[g.id(sourceNode)][g.id(targetNode)]=g.addArc(sourceNode, targetNode);
+            c[arcs[g.id(sourceNode)][g.id(targetNode)]]=originalArcCost;
             myAssert(countArcs(g)==originalArcCount, "Arc(s) vanished!");
             cout << "Remove: arc =0" << endl;
 
@@ -1024,21 +1027,21 @@ void VRP::recursiveBranch(int& branchedNodes)
             //arc=1
             cout << "Add: arc =1" << endl;
             changedCosts.resize(0);
-            vector<pair<ListDigraph::Node, ListDigraph::Node>> erasedArcs;
+            vector<tuple<ListDigraph::Node, ListDigraph::Node, int>> erasedArcs;
             for(ListDigraph::OutArcIt arc(g, sourceNode); arc!=INVALID;){
                 ListDigraph::Arc a=arc;
                 ++arc;
                 changeObjCoeffs(a, changedCosts);
-                erasedArcs.push_back(pair<ListDigraph::Node, ListDigraph::Node>
-                        (g.source(a), g.target(a)));
+                erasedArcs.push_back(tuple<ListDigraph::Node, ListDigraph::Node, int>
+                        (g.source(a), g.target(a), c[a]));
                 g.erase(a);
             }
             for(ListDigraph::InArcIt arc(g, targetNode); arc!=INVALID;){
                 ListDigraph::Arc a=arc;
                 ++arc;
                 changeObjCoeffs(a, changedCosts);
-                erasedArcs.push_back(pair<ListDigraph::Node, ListDigraph::Node>
-                        (g.source(a), g.target(a)));
+                erasedArcs.push_back(tuple<ListDigraph::Node, ListDigraph::Node, int>
+                        (g.source(a), g.target(a), c[a]));
                 g.erase(a);
             }
             int startSourceOldCost=-1;
@@ -1061,8 +1064,11 @@ void VRP::recursiveBranch(int& branchedNodes)
                 masterLP.objCoeff(startCols[sourceNode], startTargetOldCost);
             }
             for(unsigned int i=0; i<erasedArcs.size(); ++i){
-                arcs[g.id(erasedArcs[i].first)][g.id(erasedArcs[i].second)]
-                    =g.addArc(erasedArcs[i].first, erasedArcs[i].second);
+                ListDigraph::Node sNode=std::get<0>(erasedArcs[i]);
+                ListDigraph::Node tNode=std::get<1>(erasedArcs[i]);
+                arcs[g.id(sNode)][g.id(tNode)]
+                    =g.addArc(sNode, tNode);
+                c[arcs[g.id(sNode)][g.id(tNode)]]=std::get<2>(erasedArcs[i]);
             }
             myAssert(countArcs(g)==originalArcCount, "Arc(s) vanished!");
             cout << "Remove: arc =1" << endl;
@@ -1082,9 +1088,7 @@ void VRP::changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedC
                 break;
             }
         }
-
-
-        if(containsArc)
+        if(containsArc && masterLP.objCoeff(cols[i])<BIG_VALUE-1)
         {
             changedCosts.push_back(pair<int, int>(i, masterLP.objCoeff(cols[i])));
             masterLP.objCoeff(cols[i], BIG_VALUE);
@@ -1113,4 +1117,9 @@ void VRP::calculateArcUse(){
             arcUse[arcs[g.id(node)][0]] += usage;
         }
     }
+}
+
+void VRP::printCost(int sourceId, int targetId){
+    //TODO: check is valid id?
+    cout << c[arcs[sourceId][targetId]] << endl;
 }

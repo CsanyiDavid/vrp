@@ -14,6 +14,7 @@
 #include <lemon/random.h>
 #include <lemon/time_measure.h>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -141,9 +142,11 @@ public:
 
     void recursiveBranch(int&  branchedNodes);
 
+    void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts);
+
     void calculateArcUse();
 
-    void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts);
+    void printCost(int sourceId, int targetId);
 
     friend class MarginalCost;
     friend class Label;
