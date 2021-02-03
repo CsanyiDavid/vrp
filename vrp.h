@@ -18,6 +18,8 @@
 #include <utility>
 #include <vector>
 
+#define PRINT false
+
 #ifndef VRP_H
 #define VRP_H
 
@@ -142,7 +144,8 @@ public:
 
     void recursiveBranch(int&  branchedNodes);
 
-    void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts);
+    void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
+        vector<pair<ListDigraph::Node, int>>& changedStartCosts);
 
     void calculateArcUse();
 

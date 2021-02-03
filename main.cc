@@ -23,7 +23,7 @@ int main(){
     #if IS_MAP
         VRP vrp(IS_MAP, "hun-sc-ncn.lgf");
         //vrp.printToEps("graph.eps");
-        cout << "(Type help for the available commands)" << endl;
+        if(PRINT) cout << "(Type help for the available commands)" << endl;
     #else
         VRP vrp(IS_MAP, "inp.lgf");
         vrp.createMasterLP();
@@ -38,24 +38,24 @@ int main(){
          if(input=="exit" || input=="e"){
              break;
          } else if(input=="init" || input=="i") {
-             cout << "cnt: ";
+             if(PRINT) cout << "cnt: ";
              cin >> costumerCnt;
-             cout << "seed: ";
+             if(PRINT) cout << "seed: ";
              cin >> mySeed;
-             cout << "max weight: ";
+             if(PRINT) cout << "max weight: ";
              cin >> myMaxWeight;
-             cout << endl;
+             if(PRINT) cout << endl;
              vrp.init(costumerCnt);
          } else if(input=="run" || input=="r") {
              vrp.branchAndBound();
          } else if(input=="initrun" || input=="ir"){
-             cout << "cnt: ";
+             if(PRINT) cout << "cnt: ";
              cin >> costumerCnt;
-             cout << "seed: ";
+             if(PRINT) cout << "seed: ";
              cin >> mySeed;
-             cout << "max weight: ";
+             if(PRINT) cout << "max weight: ";
              cin >> myMaxWeight;
-             cout << endl;
+             if(PRINT) cout << endl;
              if(costumerCnt==-1 || mySeed==-1 || myMaxWeight==-1){
                  cout << "aborted" << endl;
              } else {
