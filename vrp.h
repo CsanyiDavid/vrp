@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-#define PRINT false
+#define PRINT true
 
 #ifndef VRP_H
 #define VRP_H
@@ -70,14 +70,11 @@ private:
     int n;
 
     vector<ListDigraph::Node> nodes;
-    //ListDigraph::NodeMap<int> ids;
     vector<vector<ListDigraph::Arc>> arcs;
     vector<vector<vector<ListDigraph::Arc>>> paths;
 
     ListDigraph::ArcMap<int> c;     //travel distance (meters)
     ListDigraph::ArcMap<double> t;     //travel time (minutes)
-    //ListDigraph::NodeMap<int> a;
-    //ListDigraph::NodeMap<int> b;
     ListDigraph::NodeMap<int> q;
     int Q;
 

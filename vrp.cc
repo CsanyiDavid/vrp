@@ -178,8 +178,10 @@ void VRP::printToEps(const string& filename){
     ListDigraph::ArcMap<double> arcWidth(map, 0.035);
     for(unsigned int i=0; i<bestSolutionColIndexs.size(); ++i){
         int colIndex=bestSolutionColIndexs[i];
-        for(unsigned int arcIndex=0; arcIndex<routes[colIndex].size(); ++arcIndex){
-            ListDigraph::Arc arc=routes[colIndex][arcIndex];
+        for(unsigned int nodeIndex=1; nodeIndex<routeNodes[colIndex].size(); ++nodeIndex){
+            int sId=g.id(routeNodes[colIndex][nodeIndex-1]);
+            int tId=g.id(routeNodes[colIndex][nodeIndex]);
+            ListDigraph::Arc arc=arcs[sId][tId];
             for(unsigned int a=0; a<paths[g.id(g.source(arc))][g.id(g.target(arc))].size(); ++a){
                 ListDigraph::Arc currArc;
                 currArc=paths[g.id(g.source(arc))][g.id(g.target(arc))][a];
