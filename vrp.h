@@ -23,7 +23,7 @@
 #ifndef VRP_H
 #define VRP_H
 
-#define BIG_VALUE 1000000000
+#define BIG_VALUE 1000000000.0
 #define EPSILON 0.0001
 
 using namespace std;
@@ -54,6 +54,13 @@ class NodeLabels;
 
 class VRP{
 private:
+    //Init data
+    int seed;
+    int maxWeight;
+    int Q;  //vehicle capacity
+    bool isInitialized=false;
+    bool createdMasterLP=false;
+
     //The map
     ListDigraph map;
     ListDigraph::ArcMap<int> maxspeed;
@@ -76,7 +83,6 @@ private:
     ListDigraph::ArcMap<int> c;     //travel distance (meters)
     ListDigraph::ArcMap<double> t;     //travel time (minutes)
     ListDigraph::NodeMap<int> q;
-    int Q;
 
     // The Master Problem
     Lp masterLP;
@@ -86,9 +92,9 @@ private:
     ListDigraph::NodeMap<Lp::Col> startCols;
     ListDigraph::NodeMap<Lp::Row> nodeRows;
     Lp::Col vehicleNumberCol;
-    Lp::Col totalCostCol;
+   // Lp::Col totalCostCol;
     Lp::Row vehicleNumberRow;
-    Lp::Row totalCostRow;
+   // Lp::Row totalCostRow;
 
     //Best solution
     ListDigraph::ArcMap<double> arcUse;
@@ -97,59 +103,37 @@ private:
     vector<double> bestSolutionColIndexs;
     ListDigraph::NodeMap<double> bestSolutionStartCols;
 
-    //Check Mip
-
 public:
     VRP(bool isMap, const string& inputName);
-
-    void init(int costumerCnt);
-
-    void generateCostumersGraph(int costumerCnt);
-
+    void init(int initCostumerCnt, int initSeed, int initMaxWeight, int initVehicleCapacity=100);
     void printToEps(const string& filename);
-
-    void shortestPaths();
-
     void printCostumerCoordinates();
-
     ListDigraph::Node nodeFromLatLon(double latitude, double longitude);
-
     void printShortestPathsFromDepot();
-
-    void createMasterLP();
-
-    void printMasterLPSolution();
-
-    bool solveMasterLP();
-
-    bool extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels, const ListDigraph::Node& node,
-                     MarginalCost& mc);
-
-    bool generateColumn();
-
-    void addGeneratedColumn(const Label& l);
-
+    //void printMasterLPSolution();
     void printRoutes(int index=-1);
-
     void printMasterLPMatrix();
-
     void checkMIP(bool printEps=false);
     void printToEpsCheckMIP(const string &, const Mip& mip,
                             const ListDigraph::ArcMap<Mip::Col>& cols);
-
     void branchAndBound();
-
-    void recursiveBranch(int&  branchedNodes);
-
-    void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
-        vector<pair<ListDigraph::Node, int>>& changedStartCosts);
-
-    void calculateArcUse();
-
     void printCost(int sourceId, int targetId);
-
     friend class MarginalCost;
     friend class Label;
+
+private:
+    void generateCostumersGraph();
+    void shortestPaths();
+    void createMasterLP();
+    bool solveMasterLP();
+    bool extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels, const ListDigraph::Node& node,
+                      MarginalCost& mc);
+    bool generateColumn();
+    void addGeneratedColumn(const Label& l);
+    void recursiveBranch(int&  branchedNodes);
+    void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
+                         vector<pair<ListDigraph::Node, int>>& changedStartCosts);
+    void calculateArcUse();
 };
 
 #endif /* VRP_H */

@@ -3,3 +3,6 @@ build
 cmake-build-debug/
 notes.txt
 input_generator.cc
+debug.cc
+new_debug.cc
+CMakeLists.txt

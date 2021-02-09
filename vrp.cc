@@ -4,9 +4,6 @@
 
 #include "vrp.h"
 
-extern int mySeed;
-extern int myMaxWeight;
-
 using namespace std;
 using namespace lemon;
 
@@ -91,11 +88,9 @@ VRP::VRP(bool isMap, const string& inputName)   :
         if(PRINT) cout << "Elapsed: " << timer.realTime() << "s" << endl;
         mapNodesNumber = countNodes(map);
         mapArcsNumber = countArcs(map);
-
-        Q=100;
         if(PRINT) cout << "Number of nodes: " << mapNodesNumber << endl;
         if(PRINT) cout << "Number of arcs: " << mapArcsNumber << endl << endl;
-    } else {
+    }/* else {
         Timer timer(true);
         cout << "Reading the graph.. " << flush;
         digraphReader(g, inputName)
@@ -119,36 +114,51 @@ VRP::VRP(bool isMap, const string& inputName)   :
             myAssert(q[node]<=Q, "Too big demand(q) value!");
             myAssert(q[node]>0, "Too low demand(q) value'");
         }
+    }*/
+}
+
+void VRP::init(int initCostumerCnt, int initSeed, int initMaxWeight,
+               int initVehicleCapacity)
+{
+    if(0<initCostumerCnt && initCostumerCnt<=50
+        && 0<initMaxWeight && initMaxWeight<=initVehicleCapacity
+        && 0<initVehicleCapacity && initVehicleCapacity<=1000)
+    {
+        n = initCostumerCnt + 1;
+        seed = initSeed;
+        maxWeight = initMaxWeight;
+        Q = initVehicleCapacity;
+        isInitialized=true;
+
+        depotAndCostumers.resize(0);
+        g.clear();
+        nodes.resize(0);
+        arcs.resize(0);
+        paths.resize(0);
+
+
+        generateCostumersGraph();
+        if (PRINT) printCostumerCoordinates();
+        shortestPaths();
+    } else {
+        cerr << "Initialization failed!" << endl;
     }
 }
 
-void VRP::init(int costumerCnt)
-{
-    g.clear();
-    generateCostumersGraph(costumerCnt);
-    if(PRINT) printCostumerCoordinates();
-    shortestPaths();
-    //printShortestPathsFromDepot();
-}
-
-void VRP::generateCostumersGraph(int costumerCnt)
+void VRP::generateCostumersGraph()
 {
     Timer timer(true);
     if(PRINT) cout << "Generate costumer graph.. " << flush;
-    n=costumerCnt+1;
-    depotAndCostumers.resize(0);
     depotAndCostumers.reserve(n);
-    nodes.resize(0);
     nodes.reserve(n);
     depotAndCostumers.push_back(0);
     nodes.push_back(g.addNode());
 
-    Random random(mySeed);
+    Random random(seed);
     for(int i = 1; i < n; ++i){
         depotAndCostumers.push_back(random[mapNodesNumber]);
         nodes.push_back(g.addNode());
     }
-    arcs.resize(0);
     arcs.resize(n);
     for(int i = 0; i < n; ++i){
         arcs[i].resize(n);
@@ -163,7 +173,7 @@ void VRP::generateCostumersGraph(int costumerCnt)
         if(g.id(node)==0){
             q[node]=0;
         } else {
-            q[node] = random[myMaxWeight]+1;
+            q[node] = random[maxWeight]+1;
         }
         if(PRINT) cout << q[node] << " ";
     }
@@ -172,64 +182,68 @@ void VRP::generateCostumersGraph(int costumerCnt)
 }
 
 void VRP::printToEps(const string& filename){
-    Timer timer(true);
-    cout << "Printing to eps..." << flush;
-    ListDigraph::ArcMap<Color> arcColor(map, Color(170, 255, 0));
-    ListDigraph::ArcMap<double> arcWidth(map, 0.035);
-    for(unsigned int i=0; i<bestSolutionColIndexs.size(); ++i){
-        int colIndex=bestSolutionColIndexs[i];
-        for(unsigned int nodeIndex=1; nodeIndex<routeNodes[colIndex].size(); ++nodeIndex){
-            int sId=g.id(routeNodes[colIndex][nodeIndex-1]);
-            int tId=g.id(routeNodes[colIndex][nodeIndex]);
-            ListDigraph::Arc arc=arcs[sId][tId];
-            for(unsigned int a=0; a<paths[g.id(g.source(arc))][g.id(g.target(arc))].size(); ++a){
-                ListDigraph::Arc currArc;
-                currArc=paths[g.id(g.source(arc))][g.id(g.target(arc))][a];
-                arcWidth[currArc]=0.15;
-                arcColor[currArc]=Color(255, 0, 0);
+    if(isInitialized) {
+        Timer timer(true);
+        cout << "Printing to eps..." << flush;
+        ListDigraph::ArcMap<Color> arcColor(map, Color(170, 255, 0));
+        ListDigraph::ArcMap<double> arcWidth(map, 0.035);
+        for (unsigned int i = 0; i < bestSolutionColIndexs.size(); ++i) {
+            int colIndex = bestSolutionColIndexs[i];
+            for (unsigned int nodeIndex = 1; nodeIndex < routeNodes[colIndex].size(); ++nodeIndex) {
+                int sId = g.id(routeNodes[colIndex][nodeIndex - 1]);
+                int tId = g.id(routeNodes[colIndex][nodeIndex]);
+                ListDigraph::Arc arc = arcs[sId][tId];
+                for (unsigned int a = 0; a < paths[g.id(g.source(arc))][g.id(g.target(arc))].size(); ++a) {
+                    ListDigraph::Arc currArc;
+                    currArc = paths[g.id(g.source(arc))][g.id(g.target(arc))][a];
+                    arcWidth[currArc] = 0.15;
+                    arcColor[currArc] = Color(255, 0, 0);
+                }
             }
         }
-    }
-    for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
-        if(g.id(node)!=0 && bestSolutionStartCols[node]>EPSILON){
-            ListDigraph::Arc arc;
-            arc=arcs[0][g.id(node)];
-            for(unsigned int a=0; a<paths[g.id(g.source(arc))][g.id(g.target(arc))].size(); ++a){
-                ListDigraph::Arc currArc;
-                currArc=paths[g.id(g.source(arc))][g.id(g.target(arc))][a];
-                arcWidth[currArc]=0.15;
-                arcColor[currArc]=Color(255, 0, 0);
-            }
-            arc=arcs[g.id(node)][0];
-            for(unsigned int a=0; a<paths[g.id(g.source(arc))][g.id(g.target(arc))].size(); ++a){
-                ListDigraph::Arc currArc;
-                currArc=paths[g.id(g.source(arc))][g.id(g.target(arc))][a];
-                arcWidth[currArc]=0.15;
-                arcColor[currArc]=Color(255, 0, 0);
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            if (g.id(node) != 0 && bestSolutionStartCols[node] > EPSILON) {
+                ListDigraph::Arc arc;
+                arc = arcs[0][g.id(node)];
+                for (unsigned int a = 0; a < paths[g.id(g.source(arc))][g.id(g.target(arc))].size(); ++a) {
+                    ListDigraph::Arc currArc;
+                    currArc = paths[g.id(g.source(arc))][g.id(g.target(arc))][a];
+                    arcWidth[currArc] = 0.15;
+                    arcColor[currArc] = Color(255, 0, 0);
+                }
+                arc = arcs[g.id(node)][0];
+                for (unsigned int a = 0; a < paths[g.id(g.source(arc))][g.id(g.target(arc))].size(); ++a) {
+                    ListDigraph::Arc currArc;
+                    currArc = paths[g.id(g.source(arc))][g.id(g.target(arc))][a];
+                    arcWidth[currArc] = 0.15;
+                    arcColor[currArc] = Color(255, 0, 0);
+                }
             }
         }
-    }
-    ListDigraph::NodeMap<double> nodeSize(map, 0.0);
-    ListDigraph::NodeMap<int> nodeShape(map, 0);
-    ListDigraph::NodeMap<Color> nodeColor(map, Color(0, 0, 255));
-    ListDigraph::Node node=INVALID;
-    for(int i = 1; i < n; ++i) {
-        node=map.nodeFromId(depotAndCostumers[i]);
-        nodeSize[node] = 0.2;
-    }
-    nodeShape[map.nodeFromId(depotAndCostumers[0])]=1;
-    nodeSize[map.nodeFromId(depotAndCostumers[0])]=0.5;
+        ListDigraph::NodeMap<double> nodeSize(map, 0.0);
+        ListDigraph::NodeMap<int> nodeShape(map, 0);
+        ListDigraph::NodeMap<Color> nodeColor(map, Color(0, 0, 255));
+        ListDigraph::Node node = INVALID;
+        for (int i = 1; i < n; ++i) {
+            node = map.nodeFromId(depotAndCostumers[i]);
+            nodeSize[node] = 0.2;
+        }
+        nodeShape[map.nodeFromId(depotAndCostumers[0])] = 1;
+        nodeSize[map.nodeFromId(depotAndCostumers[0])] = 0.5;
 
-    graphToEps(map, filename)
-            .coords(coords)
-            .arcWidths(arcWidth)
-            .arcColors(arcColor)
-            .scale(200)
-            .nodeSizes(nodeSize)
-            .nodeShapes(nodeShape)
-            .nodeColors(nodeColor)
-            .run();
-    cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
+        graphToEps(map, filename)
+                .coords(coords)
+                .arcWidths(arcWidth)
+                .arcColors(arcColor)
+                .scale(200)
+                .nodeSizes(nodeSize)
+                .nodeShapes(nodeShape)
+                .nodeColors(nodeColor)
+                .run();
+        cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
+    } else {
+        cerr << "Not initialized!" << endl;
+    }
 }
 
 class ArcTravelTime{
@@ -257,8 +271,6 @@ void VRP::shortestPaths()
     Timer timer(true);
     if(PRINT) cout << "Shortest paths..." << flush;
     ArcTravelTime travelTime(maxspeed, length);
-
-    paths.resize(0);
     paths.resize(n);
     for(int i=0; i<n; ++i){
         paths[i].resize(n);
@@ -290,14 +302,18 @@ void VRP::shortestPaths()
 
 void VRP::printCostumerCoordinates()
 {
-    cout << "Costumer coordinates: " << endl;
-    for(int i = 0; i < n; ++i){
-        ListDigraph::Node node;
-        node=map.nodeFromId(depotAndCostumers[i]);
-        cout << i << " : (" << lat[node] << ", " << lon[node] << ")";
-        cout << "\t demand: " << q[nodes[i]] << endl;
+    if(isInitialized) {
+        cout << "Costumer coordinates: " << endl;
+        for (int i = 0; i < n; ++i) {
+            ListDigraph::Node node;
+            node = map.nodeFromId(depotAndCostumers[i]);
+            cout << i << " : (" << lat[node] << ", " << lon[node] << ")";
+            cout << "\t demand: " << q[nodes[i]] << endl;
+        }
+        cout << endl;
+    } else {
+        cerr << "Not initialized!" << endl;
     }
-    cout << endl;
 }
 
 ListDigraph::Node VRP::nodeFromLatLon(double latitude, double longitude)
@@ -312,80 +328,91 @@ ListDigraph::Node VRP::nodeFromLatLon(double latitude, double longitude)
             closestNode=node;
         }
     }
+    if(PRINT) cout << "Closest node: " << g.id(closestNode) << endl;
+    if(PRINT) cout << "Distance: " << minDist << endl;
     return closestNode;
 }
 
 void VRP::printShortestPathsFromDepot()
 {
-    cout << "Shortest paths from depot: " << endl;
-    for(int i = 1; i < n; ++i){
-        ListDigraph::Node node;
-        node=map.nodeFromId(depotAndCostumers[i]);
-        cout << i << " : (" << lat[node] << ", " << lon[node] << ")" << endl;
-        cout << "     time: " << t[arcs[0][i]] << " minutes" << endl;
-        cout << "     distance: " << c[arcs[0][i]] << " meters" << endl;
+    if(isInitialized) {
+        cout << "Shortest paths from depot: " << endl;
+        for (int i = 1; i < n; ++i) {
+            ListDigraph::Node node;
+            node = map.nodeFromId(depotAndCostumers[i]);
+            cout << i << " : (" << lat[node] << ", " << lon[node] << ")" << endl;
+            cout << "     time: " << t[arcs[0][i]] << " minutes" << endl;
+            cout << "     distance: " << c[arcs[0][i]] << " meters" << endl;
+        }
+        cout << endl;
+    } else {
+        cerr << "Not initialized!" << endl;
     }
-    cout << endl;
 }
 
 void VRP::createMasterLP()
 {
-    masterLP.clear();
-    cols.resize(0);
-    routes.resize(0);
-    routeNodes.resize(0);
+    if(isInitialized) {
+        createdMasterLP=true;
+        masterLP.clear();
+        cols.resize(0);
+        routes.resize(0);
+        routeNodes.resize(0);
 
-    //Add cols
-    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
-        if(g.id(node)!=0){
-            startCols[node]=masterLP.addCol();
-            masterLP.colLowerBound(startCols[node], 0);
-            masterLP.colUpperBound(startCols[node], 1);
-            //Calculate startCol costs
-            masterLP.objCoeff(
-                    startCols[node],
-                    c[arcs[0][g.id(node)]]+c[arcs[g.id(node)][0]]);
+        //Add cols
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            if (g.id(node) != 0) {
+                startCols[node] = masterLP.addCol();
+                masterLP.colLowerBound(startCols[node], 0);
+                masterLP.colUpperBound(startCols[node], 1);
+                //Calculate startCol costs
+                masterLP.objCoeff(
+                        startCols[node],
+                        c[arcs[0][g.id(node)]] + c[arcs[g.id(node)][0]]);
+            }
         }
-    }
-    vehicleNumberCol=masterLP.addCol();
-    totalCostCol=masterLP.addCol();
-    masterLP.objCoeff(vehicleNumberCol, 0);
-    masterLP.objCoeff(totalCostCol, 0);
-    masterLP.colLowerBound(vehicleNumberCol, 0);
-    masterLP.colLowerBound(totalCostCol, 0);
+        vehicleNumberCol = masterLP.addCol();
+        //totalCostCol=masterLP.addCol();
+        masterLP.objCoeff(vehicleNumberCol, 0);
+        //masterLP.objCoeff(totalCostCol, 0);
+        masterLP.colLowerBound(vehicleNumberCol, 0);
+        //masterLP.colLowerBound(totalCostCol, 0);
 
-    //Add rows
-    for(ListDigraph::NodeIt node(g); node!=INVALID; ++node) {
-        if (g.id(node) != 0) {
-            nodeRows[node] = masterLP.addRow(startCols[node] >= 1);
+        //Add rows
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            if (g.id(node) != 0) {
+                nodeRows[node] = masterLP.addRow(startCols[node] >= 1);
+            }
         }
-    }
-    vehicleNumberRow=masterLP.addRow();
-    totalCostRow=masterLP.addRow();
+        vehicleNumberRow = masterLP.addRow();
+        //totalCostRow=masterLP.addRow();
 
-    //Set vehicleNumber and totalCost rows coeffs
-    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
-        if(g.id(node) != 0){
-            masterLP.coeff(vehicleNumberRow, startCols[node], 1);
-            masterLP.coeff(totalCostRow, startCols[node],
-                    masterLP.objCoeff(startCols[node]));
+        //Set vehicleNumber and totalCost rows coeffs
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            if (g.id(node) != 0) {
+                masterLP.coeff(vehicleNumberRow, startCols[node], 1);
+                //masterLP.coeff(totalCostRow, startCols[node],
+                //        masterLP.objCoeff(startCols[node]));
+            }
         }
-    }
-    masterLP.coeff(vehicleNumberRow, vehicleNumberCol, -1);
-    masterLP.coeff(totalCostRow, totalCostCol, -1);
-    masterLP.rowLowerBound(vehicleNumberRow, 0);
-    masterLP.rowUpperBound(vehicleNumberRow, 0);
-    masterLP.rowLowerBound(totalCostRow, 0);
-    masterLP.rowUpperBound(totalCostRow, 0);
+        masterLP.coeff(vehicleNumberRow, vehicleNumberCol, -1);
+        //masterLP.coeff(totalCostRow, totalCostCol, -1);
+        masterLP.rowLowerBound(vehicleNumberRow, 0);
+        masterLP.rowUpperBound(vehicleNumberRow, 0);
+        //masterLP.rowLowerBound(totalCostRow, 0);
+        //masterLP.rowUpperBound(totalCostRow, 0);
 
-    masterLP.min();
+        masterLP.min();
+    } else {
+        cerr << "Not initialized!" << endl;
+    }
 }
 
-void VRP::printMasterLPSolution()
+/*void VRP::printMasterLPSolution()
 {
     cout << "Master LP solution:" << endl;
     cout << "Number of added columns: " << cols.size() << endl;
-    /*for(Lp::Col col : cols){
+    for(Lp::Col col : cols){
         if(masterLP.primal(col)>EPSILON) {
             cout << masterLP.primal(col) << endl;
         }
@@ -395,10 +422,10 @@ void VRP::printMasterLPSolution()
             cout << g.id(node) << " . node: ";
             cout << masterLP.primal(startCols[node]) << endl;
         }
-    }*/
+    }
     cout.precision(12);
     cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
-    cout << "Total cost: " << masterLP.primal(totalCostCol) << endl;
+    cout << "Total cost: " << masterLP.primal() << endl;
 
 
     //Calculate dual cost
@@ -407,10 +434,10 @@ void VRP::printMasterLPSolution()
         dualCost+=masterLP.dual(row);
     }
     dualCost-=masterLP.dual(vehicleNumberRow);
-    dualCost-=masterLP.dual(totalCostRow);
+    //dualCost-=masterLP.dual(totalCostRow);
     //cout << "Dual cost: " << dualCost << endl;
     cout << endl;
-}
+}*/
 
 class MarginalCost {
 private:
@@ -427,7 +454,7 @@ public:
         ListDigraph::Node sNode, tNode;
         sNode = vrp.g.source(arc);
         tNode = vrp.g.target(arc);
-        double pi_c = vrp.masterLP.dual(vrp.totalCostRow);
+        //double pi_c = vrp.masterLP.dual(vrp.totalCostRow);
         double pi_s;
         if (vrp.g.id(sNode) == 0) {
             pi_s = vrp.masterLP.dual(vrp.vehicleNumberRow);
@@ -435,7 +462,7 @@ public:
             pi_s = vrp.masterLP.dual(vrp.nodeRows[sNode]);
         }
         double cost = 0;
-        cost = (1 - pi_c) * vrp.c[
+        cost = vrp.c[
                 vrp.arcs[vrp.g.id(sNode)][vrp.g.id(tNode)]
         ] - pi_s;
         return cost;
@@ -452,7 +479,6 @@ bool VRP::solveMasterLP() {
             if (PRINT) cout << "Added cols number: " << cols.size() << endl;
         }
         masterLP.solve();
-        //myAssert(masterLP.primalType()==Lp::OPTIMAL, "Not optimal");
         switch (masterLP.primalType()) {
             case 0:
                 cout << "undefined" << endl;
@@ -470,16 +496,14 @@ bool VRP::solveMasterLP() {
                 cout << "unbounded" << endl;
                 return false;
         }
-        //printMasterLPMatrix();
-        //printMasterLPSolution();
-    } while (generateColumn() && itCnt < 4000);
+    } while (generateColumn());
     if (PRINT) {
         cout << "Master LP solved, elapsed: " << timer.realTime() << "s" << endl;
         cout << "User time: " << timer.userTime() << "s" << endl;
         cout << "Number of added columns: " << cols.size() << endl;
         cout.precision(12);
         cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
-        cout << "Total cost: " << masterLP.primal(totalCostCol) << endl;
+        cout << "Total cost: " << masterLP.primal() << endl;
         cout << endl;
     }
 
@@ -706,34 +730,38 @@ void VRP::addGeneratedColumn(const Label& l)
     }
     //cout << endl;
     masterLP.coeff(vehicleNumberRow, col, 1);
-    masterLP.coeff(totalCostRow, col, currCost);
+    //masterLP.coeff(totalCostRow, col, currCost);
     masterLP.objCoeff(col, currCost);
 }
 
 void VRP::printRoutes(int index){
-    if(0<=index && index<static_cast<int>(routeNodes.size())){
-        cout << "Print route with index: " << index << endl;
-        for(unsigned int j=0; j<routeNodes[index].size(); ++j){
-            cout << g.id(routeNodes[index][j]) << " ";
-        }
-        cout << endl;
-        cout << "Cost: " << masterLP.objCoeff(cols[index]) << endl;
-    } else if(index==-1) {
-        cout << "Print routes: " << endl;
-        for (unsigned int i = 0; i < routeNodes.size(); ++i) {
-            for(unsigned int j=0; j<routeNodes[i].size(); ++j){
-                cout << g.id(routeNodes[i][j]) << " ";
+    if(createdMasterLP) {
+        if (0 <= index && index < static_cast<int>(routeNodes.size())) {
+            cout << "Print route with index: " << index << endl;
+            for (unsigned int j = 0; j < routeNodes[index].size(); ++j) {
+                cout << g.id(routeNodes[index][j]) << " ";
             }
-            cout << "    Cost: " << masterLP.objCoeff(cols[i]) << endl;
-        }
-        cout << endl;
-        for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
-            if(g.id(node)!=0){
-                cout << "0 " << g.id(node) << " 0   Cost: ";
-                cout << masterLP.objCoeff(startCols[node]) << endl;
+            cout << endl;
+            cout << "Cost: " << masterLP.objCoeff(cols[index]) << endl;
+        } else if (index == -1) {
+            cout << "Print routes: " << endl;
+            for (unsigned int i = 0; i < routeNodes.size(); ++i) {
+                for (unsigned int j = 0; j < routeNodes[i].size(); ++j) {
+                    cout << g.id(routeNodes[i][j]) << " ";
+                }
+                cout << "    Cost: " << masterLP.objCoeff(cols[i]) << endl;
             }
+            cout << endl;
+            for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+                if (g.id(node) != 0) {
+                    cout << "0 " << g.id(node) << " 0   Cost: ";
+                    cout << masterLP.objCoeff(startCols[node]) << endl;
+                }
+            }
+            cout << endl;
         }
-        cout << endl;
+    } else {
+        cerr << "Master LP is not created" << endl;
     }
 }
 
@@ -783,72 +811,81 @@ void VRP::printMasterLPMatrix(){
 
 void VRP::checkMIP(bool printEps)
 {
-    Timer timer(true);
-    cout << "Check MIP started: " << endl;
+    if(isInitialized) {
+        Timer timer(true);
+        cout << "Check MIP started: " << endl;
 
-    Mip mip;
-    //Add cols
-    ListDigraph::ArcMap<Mip::Col> checkCols(g);
-    for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
-        checkCols[arc]=mip.addCol();
-        mip.colLowerBound(checkCols[arc], 0);
-        mip.colType(checkCols[arc], Mip::INTEGER);
-    }
-    ListDigraph::NodeMap<Lp::Col> checkWeights(g);
-    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
-        checkWeights[node]=mip.addCol();
-        mip.colLowerBound(checkWeights[node], 0);
-        mip.colUpperBound(checkWeights[node], Q);
-    }
-
-    //Add rows
-    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
-        if(g.id(node)!=0) {
-            Mip::Expr eOut, eIn;
-            for (ListDigraph::OutArcIt arc(g, node); arc != INVALID; ++arc) {
-                eOut += checkCols[arc];
-            }
-            mip.addRow(eOut == 1);
-            for (ListDigraph::InArcIt arc(g, node); arc != INVALID; ++arc) {
-                eIn += checkCols[arc];
-            }
-            mip.addRow(eIn == 1);
+        Mip mip;
+        //Add cols
+        ListDigraph::ArcMap<Mip::Col> checkCols(g);
+        for (ListDigraph::ArcIt arc(g); arc != INVALID; ++arc) {
+            checkCols[arc] = mip.addCol();
+            mip.colLowerBound(checkCols[arc], 0);
+            mip.colType(checkCols[arc], Mip::INTEGER);
         }
-    }
-    mip.colUpperBound(checkWeights[g.nodeFromId(0)], 0);
-    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node){
-        if(g.id(node)!=0) {
-            for (ListDigraph::InArcIt arc(g, node); arc != INVALID; ++arc) {
-                Lp::Expr e;
-                e = (checkWeights[g.source(arc)] + q[node]);
-                mip.addRow(checkWeights[node]<=BIG_VALUE*(1-checkCols[arc])+e);
-                mip.addRow(checkWeights[node]+BIG_VALUE*(1-checkCols[arc])>=e);
-            }
-       }
-    }
-    for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
-        mip.objCoeff(checkCols[arc], c[arc]);
-    }
-    mip.min();
-    mip.solve();
-    switch(mip.type()) {
-        case 0:
-            cout << "undefined" << endl; break;
-        case 1:
-            cout << "infeasible" << endl; break;
-        case 2:
-            cout << "feasible" << endl; break;
-        case 3:
-            cout << "optimal" << endl; break;
-        case 4:
-            cout << "unbounded" << endl; break;
-    }
-    cout << "CHECK MIP primal: " << mip.solValue() << endl;
-    cout << "Elapsed: " << timer.realTime() << "s" << endl;
-    cout << "User time: " << timer.userTime() << "s" << endl;
+        ListDigraph::NodeMap<Lp::Col> checkWeights(g);
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            checkWeights[node] = mip.addCol();
+            mip.colLowerBound(checkWeights[node], 0);
+            mip.colUpperBound(checkWeights[node], Q);
+        }
 
-    if(printEps){
-        printToEpsCheckMIP("checkMIP.eps", mip, checkCols);
+        //Add rows
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            if (g.id(node) != 0) {
+                Mip::Expr eOut, eIn;
+                for (ListDigraph::OutArcIt arc(g, node); arc != INVALID; ++arc) {
+                    eOut += checkCols[arc];
+                }
+                mip.addRow(eOut == 1);
+                for (ListDigraph::InArcIt arc(g, node); arc != INVALID; ++arc) {
+                    eIn += checkCols[arc];
+                }
+                mip.addRow(eIn == 1);
+            }
+        }
+        mip.colUpperBound(checkWeights[g.nodeFromId(0)], 0);
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            if (g.id(node) != 0) {
+                for (ListDigraph::InArcIt arc(g, node); arc != INVALID; ++arc) {
+                    Lp::Expr e;
+                    e = (checkWeights[g.source(arc)] + q[node]);
+                    mip.addRow(checkWeights[node] <= BIG_VALUE * (1 - checkCols[arc]) + e);
+                    mip.addRow(checkWeights[node] + BIG_VALUE * (1 - checkCols[arc]) >= e);
+                }
+            }
+        }
+        for (ListDigraph::ArcIt arc(g); arc != INVALID; ++arc) {
+            mip.objCoeff(checkCols[arc], c[arc]);
+        }
+        mip.min();
+        mip.solve();
+        switch (mip.type()) {
+            case 0:
+                cout << "undefined" << endl;
+                break;
+            case 1:
+                cout << "infeasible" << endl;
+                break;
+            case 2:
+                cout << "feasible" << endl;
+                break;
+            case 3:
+                cout << "optimal" << endl;
+                break;
+            case 4:
+                cout << "unbounded" << endl;
+                break;
+        }
+        cout << "CHECK MIP primal: " << mip.solValue() << endl;
+        cout << "Elapsed: " << timer.realTime() << "s" << endl;
+        cout << "User time: " << timer.userTime() << "s" << endl;
+
+        if (printEps) {
+            printToEpsCheckMIP("checkMIP.eps", mip, checkCols);
+        }
+    } else {
+        cerr << "Not initialized!" << endl;
     }
 }
 
@@ -898,25 +935,28 @@ void VRP::printToEpsCheckMIP(const string& filename, const Mip& mip,
 
 void VRP::branchAndBound()
 {
-    Timer timer(true);
-    bestCost=BIG_VALUE;
-    if(PRINT) cout << "Branch and bound started: " << endl;
-    int branchedNodes=0;
-    createMasterLP();
-    recursiveBranch(branchedNodes);
+    if(isInitialized) {
+        Timer timer(true);
+        bestCost = BIG_VALUE;
+        if (PRINT) cout << "Branch and bound started: " << endl;
+        int branchedNodes = 0;
+        createMasterLP();
+        recursiveBranch(branchedNodes);
 
-    if(PRINT) {
-        cout << endl;
-        cout << "Finished" << endl;
+        if (PRINT) {
+            cout << endl;
+            cout << "Finished" << endl;
+        }
+        cout << n - 1 << " " << seed << " " << maxWeight << endl;
+        myAssert(countArcs(g) == n * (n - 1), "Wrong arc count at the end of branchAndBound!");
+        cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
+        cout << "Solution: " << bestCost << endl;
+        cout << "Vehicle count: " << bestSolutionVehicle << endl;
+        cout << "Number of added cols: " << cols.size() << endl;
+        cout << "Visited branching nodes: " << branchedNodes << endl;
+    } else {
+        cerr << "Not initialized!" << endl;
     }
-    cout << n-1 << " " << mySeed << " " << myMaxWeight << endl;
-    myAssert(countArcs(g)==n*(n-1), "Wrong arc count at the end of branchAndBound!");
-    //cout << "Arc count of g: " << countArcs(g) << endl;
-    cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
-    cout << "Solution: " << bestCost << endl;
-    cout << "Vehicle count: " << bestSolutionVehicle << endl;
-    cout << "Number of added cols: " << cols.size() << endl;
-    cout << "Visited branching nodes: " << branchedNodes << endl;
 }
 
 bool isWhole(double x){
@@ -1152,6 +1192,24 @@ void VRP::calculateArcUse(){
 }
 
 void VRP::printCost(int sourceId, int targetId){
-    //TODO: check is valid id?
-    cout << c[arcs[sourceId][targetId]] << endl;
+    if(isInitialized) {
+        if (0 <= sourceId && sourceId < n && 0 <= targetId && targetId < n) {
+            if (sourceId != targetId) {
+                ListDigraph::Node node;
+                node = map.nodeFromId(depotAndCostumers[sourceId]);
+                cout << "Source: ";
+                cout << sourceId << "  (" << lat[node] << ", " << lon[node] << ")" << endl;
+                node = map.nodeFromId(depotAndCostumers[targetId]);
+                cout << "Target: ";
+                cout << targetId << "  (" << lat[node] << ", " << lon[node] << ")" << endl;
+                cout << "Cost: " << c[arcs[sourceId][targetId]] << endl;
+            } else {
+                cerr << "Identical source and target nodes." << endl;
+            }
+        } else {
+            cerr << "Invalid node ID." << endl;
+        }
+    } else {
+        cerr << "Not initialized!" << endl;
+    }
 }
