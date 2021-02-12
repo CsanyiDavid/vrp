@@ -94,6 +94,7 @@ private:
     Lp::Col vehicleNumberCol;
    // Lp::Col totalCostCol;
     Lp::Row vehicleNumberRow;
+    //Lp::Row vehicleNumberRow2;
    // Lp::Row totalCostRow;
 
     //Best solution
@@ -133,7 +134,7 @@ private:
     void recursiveBranch(int&  branchedNodes);
     void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
                          vector<pair<ListDigraph::Node, int>>& changedStartCosts);
-    void calculateArcUse();
+    void calculateArcUse(bool bo=false);
 };
 
 #endif /* VRP_H */
