@@ -92,10 +92,7 @@ private:
     ListDigraph::NodeMap<Lp::Col> startCols;
     ListDigraph::NodeMap<Lp::Row> nodeRows;
     Lp::Col vehicleNumberCol;
-   // Lp::Col totalCostCol;
     Lp::Row vehicleNumberRow;
-    //Lp::Row vehicleNumberRow2;
-   // Lp::Row totalCostRow;
 
     //Best solution
     ListDigraph::ArcMap<double> arcUse;
@@ -134,7 +131,7 @@ private:
     void recursiveBranch(int&  branchedNodes);
     void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
                          vector<pair<ListDigraph::Node, int>>& changedStartCosts);
-    void calculateArcUse(bool bo=false);
+    void calculateArcUse();
 };
 
 #endif /* VRP_H */
