@@ -409,7 +409,7 @@ void VRP::printToEpsCheckMIP(const string& filename, const Mip& mip,
     cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
-void VRP::branchAndPrice(){
+void VRP::callBranchAndPrice(){
     if(isInitialized) {
         BranchAndPrice bap(g, n, Q, nodes, arcs, c, q);
         bap.branchAndBound();
@@ -524,6 +524,15 @@ void VRP::printToEps(const string& filename){
         cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
     } else {
         cerr << "Not initialized'" << endl;
+    }
+}
+
+void VRP::callClarkeWright(){
+    if(isInitialized) {
+        ClarkeWright cw(g, n, Q, nodes, arcs, c, q);
+        cw.calculateSavings();
+    } else {
+        cerr << "Not initialized!" << endl;
     }
 }
 
@@ -1214,5 +1223,75 @@ void BranchAndPrice::saveSolution(vector<vector<ListDigraph::Node>> &solution,
         cout << "Solution cost: " << solutionCost << endl << endl;
     } else {
         cerr << "The solution is empty!" << endl;
+    }
+}
+
+ClarkeWright::ClarkeWright(
+        ListDigraph& in_g,
+        int& in_n,
+        int& in_Q,
+        vector<ListDigraph::Node>& in_nodes,
+        vector<vector<ListDigraph::Arc>>& in_arcs,
+        ListDigraph::ArcMap<int>& in_c,
+        ListDigraph::NodeMap<int>& in_q
+)
+        : g{in_g},
+          n{in_n},
+          Q{in_Q},
+          nodes{in_nodes},
+          arcs{in_arcs},
+          c{in_c},
+          q{in_q}
+{
+}
+
+void ClarkeWright::calculateSavings()
+{
+    cout << "Calculating savings" << endl;
+    for(ListDigraph::NodeIt nodeI(g); nodeI!=INVALID; ++nodeI){
+        for(ListDigraph::NodeIt nodeJ(g); nodeJ!=INVALID; ++nodeJ){
+            if(nodeI!=nodeJ && nodeI!=g.nodeFromId(0) && nodeJ!=g.nodeFromId(0)) {
+                int currSaving = 0;
+                currSaving += c[arcs[g.id(nodeI)][0]];
+                currSaving += c[arcs[0][g.id(nodeJ)]];
+                currSaving -= c[arcs[g.id(nodeI)][g.id(nodeJ)]];
+                if(currSaving>0) {
+                    savings.push_back(savingType(nodeI, nodeJ, currSaving));
+                }
+            }
+        }
+    }
+    bool (*savingComp)(const savingType&, const savingType&)=[](const savingType& s1, const savingType& s2){return (get<2>(s1)) > (get<2>(s2));};
+    std::sort(savings.begin(), savings.end(), savingComp);
+    printSavings();
+}
+
+void ClarkeWright::printSavings() {
+    cout << "Print savings:" << endl;
+    for (unsigned int i = 0; i < savings.size(); ++i){
+        cout << g.id(get<0>(savings[i])) << "->";
+        cout << g.id(get<1>(savings[i])) << " : ";
+        cout << get<2>(savings[i]) << endl;
+    }
+}
+
+void ClarkeWright::run()
+{
+    ListDigraph::Node depo=g.nodeFromId(0);
+    vector<vector<ListDigraph::Node>> routes;
+    map<ListDigraph::Node, int> nodeRouteIndexMap;
+    routes.reserve(n);
+    for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
+        if(node!=depo) {
+            vector<ListDigraph::Node> temp;
+            temp.push_back(depo);
+            temp.push_back(node);
+            temp.push_back(depo);
+            routes.push_back(temp);
+            nodeRouteIndexMap[node]=routes.size()-1;
+        }
+    }
+    for(auto currSaving : savings){
+
     }
 }

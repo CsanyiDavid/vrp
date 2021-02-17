@@ -62,8 +62,10 @@ int main(){
             cin.clear();
             cin.ignore(1000, '\n');
             vrp.printCost(sId, tId);
-        } else if (input=="branchandprice" || input=="bap"){
-            vrp.branchAndPrice();
+        } else if (input=="branchandprice" || input=="bap") {
+            vrp.callBranchAndPrice();
+        } else if(input=="clarkewright"  || input=="cw"){
+            vrp.callClarkeWright();
         } else if (input=="help" || input=="h"){
                 cout << "exit(e): \t exit from the program" << endl;
                 cout << "init(i): \t initialize the problem with costumer count, random seed" << endl;

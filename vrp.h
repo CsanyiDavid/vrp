@@ -2,6 +2,7 @@
 // Created by david on 2020. 12. 22..
 //
 
+#include <algorithm>
 #include <iostream>
 #include <lemon/arg_parser.h>
 #include <lemon/color.h>
@@ -103,6 +104,31 @@ private:
     void calculateArcUse();
 };
 
+typedef tuple<ListDigraph::Node, ListDigraph::Node, int> savingType;
+
+class ClarkeWright{
+private:
+    //The problem
+    ListDigraph& g;
+    int& n;
+    int& Q;
+    vector<ListDigraph::Node>& nodes;
+    vector<vector<ListDigraph::Arc>>& arcs;
+    ListDigraph::ArcMap<int>& c;     //travel distance (meters)
+    ListDigraph::NodeMap<int>& q;
+
+    //
+    vector<savingType> savings;
+public:
+    ClarkeWright(ListDigraph& in_g, int& n, int& in_Q,
+                 vector<ListDigraph::Node>& in_nodes,
+                 vector<vector<ListDigraph::Arc>>& in_arcs,
+                 ListDigraph::ArcMap<int>& in_c, ListDigraph::NodeMap<int>& in_q);
+    void calculateSavings();
+    void printSavings();
+    void run();
+};
+
 
 class VRP{
 private:
@@ -146,10 +172,11 @@ public:
     void checkMIP(bool printEps=false);
     void printToEpsCheckMIP(const string &, const Mip& mip,
                             const ListDigraph::ArcMap<Mip::Col>& cols);
-    void branchAndPrice();
+    void callBranchAndPrice();
     //void printMasterLPSolution();
     //void printRoutes(int index=-1);
     void printToEps(const string& filename);
+    void callClarkeWright();
 
 private:
     void generateCostumersGraph();
