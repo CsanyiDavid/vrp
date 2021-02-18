@@ -61,8 +61,8 @@ double haversineDist(double lat1, double lon1, double lat2, double lon2){
                                                          pow(sin(dlon/2), 2)));
 }
 
-//Read a Map and create graph if isMap, else read graph
-VRP::VRP(bool isMap, const string& inputName)   :
+///Reads the map from an lgf file and creates the map graph
+VRP::VRP(const string& inputName)   :
     maxspeed{map},
     length{map},
     lat{map},
@@ -72,53 +72,28 @@ VRP::VRP(bool isMap, const string& inputName)   :
     t{g},
     q{g}
 {
-    if(isMap) {
-        Timer timer(true);
-        if(PRINT) cout << "Reading the map... " << flush;
-        digraphReader(map, string(inputName))
-                .arcMap("maxspeed", maxspeed)
-                .arcMap("length", length)
-                .nodeMap("lat", lat)
-                .nodeMap("lon", lon)
-                .run();
-        if(PRINT) cout << "Elapsed: " << timer.realTime() << "s" << endl;
-        mapNodesNumber = countNodes(map);
-        mapArcsNumber = countArcs(map);
-        if(PRINT) cout << "Number of nodes: " << mapNodesNumber << endl;
-        if(PRINT) cout << "Number of arcs: " << mapArcsNumber << endl << endl;
-    }/* else {
-        Timer timer(true);
-        cout << "Reading the graph.. " << flush;
-        digraphReader(g, inputName)
-                .arcMap("c", c).arcMap("t", t)
-                .nodeMap("q", q)
-                .attribute("Q", Q)
-                .run();
-        n = countNodes(g);
-        arcs.resize(n, vector<ListDigraph::Arc>(n));
-        for (ListDigraph::ArcIt arc(g); arc != INVALID; ++arc) {
-            arcs[g.id(g.source(arc))][g.id(g.target(arc))] = arc;
-        }
-        cout << "Elapsed: " << timer.realTime() << "s" << endl;
-        cout << "Number of nodes: " << n << endl << endl;
-    }
-    //Check
-    for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
-        if(g.id(node)==0){
-            q[node]=0;
-        } else {
-            myAssert(q[node]<=Q, "Too big demand(q) value!");
-            myAssert(q[node]>0, "Too low demand(q) value'");
-        }
-    }*/
+    Timer timer(true);
+    if (PRINT) cout << "Reading the map... " << flush;
+    digraphReader(map, string(inputName))
+            .arcMap("maxspeed", maxspeed)
+            .arcMap("length", length)
+            .nodeMap("lat", lat)
+            .nodeMap("lon", lon)
+            .run();
+    if (PRINT) cout << "Elapsed: " << timer.realTime() << "s" << endl;
+    mapNodesNumber = countNodes(map);
+    mapArcsNumber = countArcs(map);
+    if (PRINT) cout << "Number of nodes: " << mapNodesNumber << endl;
+    if (PRINT) cout << "Number of arcs: " << mapArcsNumber << endl << endl;
 }
 
+///Initializes the problem: sets init data, generates costumer graph, finds shortest paths
 void VRP::init(int initCostumerCnt, int initSeed, int initMaxWeight,
                int initVehicleCapacity)
 {
-    if(0<initCostumerCnt && initCostumerCnt<=50
+    if(0<initCostumerCnt
         && 0<initMaxWeight && initMaxWeight<=initVehicleCapacity
-        && 0<initVehicleCapacity && initVehicleCapacity<=1000)
+        && 0<initVehicleCapacity)
     {
         n = initCostumerCnt + 1;
         seed = initSeed;
@@ -138,9 +113,23 @@ void VRP::init(int initCostumerCnt, int initSeed, int initMaxWeight,
         shortestPaths();
     } else {
         cerr << "Initialization failed!" << endl;
+        if(!(0<initCostumerCnt)){
+            cerr << "Nonpozitive costumer cnt" << endl;
+        }
+        if(!(0<initMaxWeight)) {
+            cerr << "Nonpozitive max costumer demand" << endl;
+        }
+        if(!(initMaxWeight<=initVehicleCapacity)){
+            cerr << "Max costumer demand is bigger then vehicle capacity (";
+            cerr << initVehicleCapacity << ")" << endl;
+        }
+        if(!(0<initVehicleCapacity)){
+            cerr << "Nonpozitive vehicle capacity" << endl;
+        }
     }
 }
 
+///Generates random costumer points on the map and their demands and creates the costumer graph (g)
 void VRP::generateCostumersGraph()
 {
     Timer timer(true);
@@ -177,6 +166,7 @@ void VRP::generateCostumersGraph()
     if(PRINT) cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
+///An arcmap class, calculates the travel time (min)
 class ArcTravelTime{
 private:
     const ListDigraph::ArcMap<int>& maxspeed;
@@ -197,6 +187,7 @@ public:
     }
 };
 
+///Runs Dijkstras between all costumer nodes and depo and calculates travel times and costs for g's arcs
 void VRP::shortestPaths()
 {
     Timer timer(true);
@@ -231,6 +222,7 @@ void VRP::shortestPaths()
     if(PRINT) cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
+///Prints all costumers, their latitudes, longitudes and demands
 void VRP::printCostumerCoordinates()
 {
     if(isInitialized) {
@@ -247,6 +239,7 @@ void VRP::printCostumerCoordinates()
     }
 }
 
+///Prints the travelling cost between two nodes of g
 void VRP::printCost(int sourceId, int targetId){
     if(isInitialized) {
         if (0 <= sourceId && sourceId < n && 0 <= targetId && targetId < n) {
@@ -270,6 +263,7 @@ void VRP::printCost(int sourceId, int targetId){
     }
 }
 
+///Finds the node in the map, which is the closest to the given latitude and longitude
 ListDigraph::Node VRP::nodeFromLatLon(double latitude, double longitude)
 {
     double minDist=BIG_VALUE;
@@ -287,6 +281,7 @@ ListDigraph::Node VRP::nodeFromLatLon(double latitude, double longitude)
     return closestNode;
 }
 
+///Solve the VRP with the CPLEX MIP
 void VRP::checkMIP(bool printEps)
 {
     if(isInitialized) {
@@ -409,6 +404,7 @@ void VRP::printToEpsCheckMIP(const string& filename, const Mip& mip,
     cout << " Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
+///Creates a BranchAndPrice class, runs the algorithm and saves the solution
 void VRP::callBranchAndPrice(){
     if(isInitialized) {
         BranchAndPrice bap(g, n, Q, nodes, arcs, c, q);
@@ -999,7 +995,7 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
         for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
             if(!isWhole(arcUse[arc])){
                 cout << arcUse[arc] << "  ";
-                if(arcUse[arc]>maxFractionalUse){
+                if(arcUse[arc]>maxFractionalUse && arcUse[arc]<1){
                     maxFractionalUse=arcUse[arc];
                     arcToBranch=arc;
                 }

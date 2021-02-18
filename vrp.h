@@ -30,8 +30,10 @@
 using namespace std;
 using namespace lemon;
 
+///Prints errorType and aborts program running if bo is false
 void myAssert(bool bo, const string& errorType);
 
+///Creates plane coordinates from longitude and latitude
 class CoordMap{
     ListDigraph::NodeMap<double>& lon;
     ListDigraph::NodeMap<double>& lat;
@@ -45,30 +47,31 @@ public:
     Value operator[](const Key& node) const;
 };
 
+///Calculates haversine distance between two map nodes from longitudes and langitudes
 double haversineDist(double lat1, double lon1, double lat2, double lon2);
 
 class MarginalCost;
 class Label;
 class NodeLabels;
 
-
+/// Solves the VRP with the branch and price algorithm
 class BranchAndPrice{
 private:
     bool createdMasterLP=false;
 
     //The problem
     ListDigraph& g;
-    int& n;
-    int& Q;
+    int& n;     //costumer+depo count
+    int& Q;     //vehicle capacity
     vector<ListDigraph::Node>& nodes;
     vector<vector<ListDigraph::Arc>>& arcs;
     ListDigraph::ArcMap<int>& c;     //travel distance (meters)
-    ListDigraph::NodeMap<int>& q;
+    ListDigraph::NodeMap<int>& q;   //costumer demands
 
     // The Master Problem
     Lp masterLP;
     vector<Lp::Col> cols;
-    vector<vector<ListDigraph::Node>> routeNodes;
+    vector<vector<ListDigraph::Node>> routeNodes;   //added column/route nodes
     ListDigraph::NodeMap<Lp::Col> startCols;
     ListDigraph::NodeMap<Lp::Row> nodeRows;
     Lp::Col vehicleNumberCol;
@@ -106,16 +109,17 @@ private:
 
 typedef tuple<ListDigraph::Node, ListDigraph::Node, int> savingType;
 
+///Solves the VRP with the Clarke-Wright algorithm
 class ClarkeWright{
 private:
     //The problem
     ListDigraph& g;
-    int& n;
-    int& Q;
+    int& n;     //costumer+depo count
+    int& Q;     //vehicle capacity
     vector<ListDigraph::Node>& nodes;
     vector<vector<ListDigraph::Arc>>& arcs;
     ListDigraph::ArcMap<int>& c;     //travel distance (meters)
-    ListDigraph::NodeMap<int>& q;
+    ListDigraph::NodeMap<int>& q;   //costumer demands
 
     //
     vector<savingType> savings;
@@ -129,7 +133,7 @@ public:
     void run();
 };
 
-
+/// Manages and stores the VRP: reads map, finds shortest paths, calls solvers, prints solution
 class VRP{
 private:
     //Init data
@@ -140,31 +144,31 @@ private:
 
     //The map
     ListDigraph map;
-    ListDigraph::ArcMap<int> maxspeed;
-    ListDigraph::ArcMap<int> length;
+    ListDigraph::ArcMap<int> maxspeed;  //(km/h)
+    ListDigraph::ArcMap<int> length;    //(m)
     ListDigraph::NodeMap<double> lat;
     ListDigraph::NodeMap<double> lon;
     int mapNodesNumber;
     int mapArcsNumber;
     CoordMap coords;
-    vector<int> depotAndCostumers;
+    vector<int> depotAndCostumers;  //Which map nodes are costumers or depo
 
     //The graph
     ListDigraph g;
-    int n;
+    int n;      //costumer+depo count
     vector<ListDigraph::Node> nodes;
     vector<vector<ListDigraph::Arc>> arcs;
-    vector<vector<vector<ListDigraph::Arc>>> paths;
+    vector<vector<vector<ListDigraph::Arc>>> paths;     //arcs of the paths between two important nodes on the map
     ListDigraph::ArcMap<int> c;     //travel distance (meters)
     ListDigraph::ArcMap<double> t;     //travel time (minutes)
-    ListDigraph::NodeMap<int> q;
+    ListDigraph::NodeMap<int> q;    //costumer demands
 
     //The solution
     vector<vector<ListDigraph::Node>> solution;
     int solutionCost;
 
 public:
-    VRP(bool isMap, const string& inputName);
+    VRP(const string& inputName);
     void init(int initCostumerCnt, int initSeed, int initMaxWeight, int initVehicleCapacity=100);
     void printCostumerCoordinates();
     void printCost(int sourceId, int targetId);
