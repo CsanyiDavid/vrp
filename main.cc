@@ -59,6 +59,45 @@ int main(){
             }
         } else if(input=="check" || input=="c") {
             vrp.checkMIP(false);
+        } else if (input=="checkwithconditions" || input=="cc"){
+            cout << "Enter the conditions or invalid value to end" << endl;
+            int sId, tId, value;
+            vector<tuple<int, int, int>> conditions;
+            bool continueRead=true;
+            while(continueRead){
+                cout << "source: ";
+                cin >> sId;
+                if(cin.fail()){
+                    cout << "Invalid value" << endl;
+                    cin.clear();
+                    continueRead=false;
+                }
+                cin.ignore(1000, '\n');
+                if(continueRead) {
+                    cout << "target: ";
+                    cin >> tId;
+                    if (cin.fail()) {
+                        cout << "Invalid value" << endl;
+                        cin.clear();
+                        continueRead = false;
+                    }
+                    cin.ignore(1000, '\n');
+                }
+                if(continueRead) {
+                    cout << "value(0/1): ";
+                    cin >> value;
+                    if (cin.fail()) {
+                        cout << "Invalid value" << endl;
+                        cin.clear();
+                        continueRead = false;
+                    }
+                    cin.ignore(1000, '\n');
+                }
+                if(continueRead) {
+                    conditions.push_back(tuple<int, int, int>(sId, tId, value));
+                }
+            }
+            vrp.checkMIP(false, conditions);
         } else if(input=="print" || input=="p"){
             string name;
             cout << "Eps file's name: ";
@@ -101,6 +140,7 @@ int main(){
                 cout << "init(i): \t initialize the problem with costumer count, random seed" << endl;
                 cout << "\t\t and maximum demand of a costumer" << endl;
                 cout << "check(c): \t solve the problem with the CPLEX MIP" << endl;
+                cout << "checkwithconditions(cc)" << endl;
                 cout << "print(p): \t print the map and the found solution to an eps file" << endl;
                 cout << "printcost(pc):\t print the cost between two nodes" << endl;
                 cout << "branchandprice(bap)" << endl;

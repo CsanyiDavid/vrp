@@ -26,7 +26,7 @@
 #define VRP_H
 
 #define BIG_VALUE 1000000000.0
-#define EPSILON 0.0001
+#define EPSILON 0.000001
 
 using namespace std;
 using namespace lemon;
@@ -177,7 +177,8 @@ public:
     void printCostumerCoordinates();
     void printCost(int sourceId, int targetId);
     ListDigraph::Node nodeFromLatLon(double latitude, double longitude);
-    void checkMIP(bool printEps=false);
+    void checkMIP(bool printEps=false,
+                  vector<tuple<int, int, int>> conditions=vector<tuple<int, int, int>>(0));
     void printToEpsCheckMIP(const string &, const Mip& mip,
                             const ListDigraph::ArcMap<Mip::Col>& cols);
     void callBranchAndPrice();
