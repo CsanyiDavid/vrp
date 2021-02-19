@@ -20,6 +20,7 @@
 #include <vector>
 
 #define PRINT true
+#define COLUMN_PRINT false
 
 #ifndef VRP_H
 #define VRP_H
@@ -89,6 +90,7 @@ public:
                    vector<vector<ListDigraph::Arc>>& in_arcs,
                    ListDigraph::ArcMap<int>& in_c, ListDigraph::NodeMap<int>& in_q);
     void branchAndBound();
+    void printMasterLPSolution();
     void printMasterLPMatrix();
     void saveSolution(vector<vector<ListDigraph::Node>>& solution, int& solutionCost);
 
@@ -107,6 +109,7 @@ private:
     void calculateArcUse();
 };
 
+/*
 typedef tuple<ListDigraph::Node, ListDigraph::Node, int> savingType;
 
 ///Solves the VRP with the Clarke-Wright algorithm
@@ -132,6 +135,7 @@ public:
     void printSavings();
     void run();
 };
+*/
 
 /// Manages and stores the VRP: reads map, finds shortest paths, calls solvers, prints solution
 class VRP{
@@ -177,10 +181,9 @@ public:
     void printToEpsCheckMIP(const string &, const Mip& mip,
                             const ListDigraph::ArcMap<Mip::Col>& cols);
     void callBranchAndPrice();
-    //void printMasterLPSolution();
     //void printRoutes(int index=-1);
     void printToEps(const string& filename);
-    void callClarkeWright();
+    //void callClarkeWright();
 
 private:
     void generateCostumersGraph();

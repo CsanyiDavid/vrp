@@ -415,37 +415,6 @@ void VRP::callBranchAndPrice(){
     }
 }
 
-/*void VRP::printMasterLPSolution()
-{
-    cout << "Master LP solution:" << endl;
-    cout << "Number of added columns: " << cols.size() << endl;
-    for(Lp::Col col : cols){
-        if(masterLP.primal(col)>EPSILON) {
-            cout << masterLP.primal(col) << endl;
-        }
-    }
-    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node) {
-        if(g.id(node)!=0) {
-            cout << g.id(node) << " . node: ";
-            cout << masterLP.primal(startCols[node]) << endl;
-        }
-    }
-    cout.precision(12);
-    cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
-    cout << "Total cost: " << masterLP.primal() << endl;
-
-
-    //Calculate dual cost
-    double dualCost=0;
-    for(Lp::RowIt row(masterLP); row!=INVALID; ++row){
-        dualCost+=masterLP.dual(row);
-    }
-    dualCost-=masterLP.dual(vehicleNumberRow);
-    //dualCost-=masterLP.dual(totalCostRow);
-    //cout << "Dual cost: " << dualCost << endl;
-    cout << endl;
-}*/
-
 /*void VRP::printRoutes(int index){
     if(createdMasterLP) {
         if (0 <= index && index < static_cast<int>(routeNodes.size())) {
@@ -523,6 +492,7 @@ void VRP::printToEps(const string& filename){
     }
 }
 
+/*
 void VRP::callClarkeWright(){
     if(isInitialized) {
         ClarkeWright cw(g, n, Q, nodes, arcs, c, q);
@@ -531,6 +501,7 @@ void VRP::callClarkeWright(){
         cerr << "Not initialized!" << endl;
     }
 }
+*/
 
 BranchAndPrice::BranchAndPrice(
         ListDigraph& in_g,
@@ -637,6 +608,7 @@ bool BranchAndPrice::solveMasterLP() {
             if (PRINT) cout << "Added cols number: " << cols.size() << endl;
         }
         masterLP.solve();
+        if(COLUMN_PRINT) printMasterLPSolution();
         switch (masterLP.primalType()) {
             case 0:
                 cout << "undefined" << endl;
@@ -762,18 +734,16 @@ bool BranchAndPrice::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels,
         for (ListDigraph::OutArcIt arc(g, node); arc != INVALID; ++arc) {
             otherNode = g.target(arc);
             extendedL=l;
-            if (extendedL.nodeUse[otherNode] == 0
-                && extendedL.weight + q[otherNode] <= Q)
+            if (extendedL.nodeUse[otherNode] == 0 &&
+                extendedL.weight + q[otherNode] <= Q)
             {
                 ++extendedL.nodeCnt;
                 extendedL.nodeUse[otherNode] = extendedL.nodeCnt;
                 extendedL.weight += q[otherNode];
                 extendedL.cost += mc[arc];
                 if (!nodeLabels[otherNode].dominated(extendedL)) {
-
                     //cerr << g.id(node) << "  -> " << g.id(otherNode);
                     //cerr << "  : " << extendedL.cost << endl;
-
                     nodeLabels[otherNode].labelList.push_back(extendedL);
                 }
             }
@@ -784,7 +754,7 @@ bool BranchAndPrice::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels,
 
 bool BranchAndPrice::generateColumn()
 {
-    //cout << "Generating column" << endl;
+    if(COLUMN_PRINT) cout << "Generating column" << endl;
     static int generationCnt=0;
     ++generationCnt;
     Timer timer(true);
@@ -792,12 +762,9 @@ bool BranchAndPrice::generateColumn()
     ListDigraph::NodeMap<NodeLabels> nodeLabels(g);
     ListDigraph::Node depot=g.nodeFromId(0);
     nodeLabels[depot].labelList.emplace_back(g);
-
     int notExtendedCnt=0;
     extendLabel(nodeLabels, depot, mc);
-
     int nextCheckDepotIndex=1;
-
     while(notExtendedCnt<n-1) {
         for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
             if(g.id(node)==0){
@@ -809,18 +776,18 @@ bool BranchAndPrice::generateColumn()
             if(extendLabel(nodeLabels, node, mc)){
                 notExtendedCnt=0;
                 if(generationCnt<5000){
-                    while(nextCheckDepotIndex<static_cast<int>
+                    while(nextCheckDepotIndex < static_cast<int>
                         (nodeLabels[depot].labelList.size()))
                     {
                         if(nodeLabels[depot].labelList[nextCheckDepotIndex].
                                 cost<-EPSILON)
                         {
-                            //cout << "Early exit!" << endl;
-                            //cout << "Found min cost: "
-                            //    << nodeLabels[depot]
-                            //        .labelList[nextCheckDepotIndex]
-                            //        .cost << endl;
-                            //cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
+                            if(COLUMN_PRINT) {
+                                cout << "Early exit!" << endl;
+                                cout << "Found min cost: "
+                                    << nodeLabels[depot].labelList[nextCheckDepotIndex].cost << endl;
+                                cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
+                            }
                             addGeneratedColumn(nodeLabels[depot].
                                     labelList[nextCheckDepotIndex]);
                             return true;
@@ -840,14 +807,11 @@ bool BranchAndPrice::generateColumn()
     for(int i=0; i<static_cast<int>(nodeLabels[depot].labelList.size()); ++i){
         if(nodeLabels[depot].labelList[i].cost<minCost){
             minCost=nodeLabels[depot].labelList[i].cost;
-            //cout << minCost << endl;
             minIndex=i;
-        } else {
-            //cout << "Nope" << endl;
         }
     }
-    //cout << "Found min cost: " << minCost << endl;
-    //cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
+    if(COLUMN_PRINT) cout << "Found min cost: " << minCost << endl;
+    if(COLUMN_PRINT) cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
     if(minCost<-EPSILON){
         addGeneratedColumn(nodeLabels[depot].labelList[minIndex]);
         return true;
@@ -859,7 +823,6 @@ bool BranchAndPrice::generateColumn()
 void BranchAndPrice::addGeneratedColumn(const Label& l)
 {
     int nodeCount=l.nodeCnt+1;
-
     Lp::Col col;
     col=masterLP.addCol();
     cols.push_back(col);
@@ -873,9 +836,9 @@ void BranchAndPrice::addGeneratedColumn(const Label& l)
     routeNodes.push_back(currRouteNodes);
     masterLP.colLowerBound(col, 0.0);
     int currCost=0;
-    //cout << "Added column's nodes:  ";
+    if(COLUMN_PRINT) cout << "Added column's nodes:  ";
     for(int i=0; i<nodeCount; ++i){
-        //cout << g.id(currRouteNodes[i]) << " ";
+        if(COLUMN_PRINT) cout << g.id(currRouteNodes[i]) << " ";
         if(g.id(currRouteNodes[i]) != 0) {
             masterLP.coeff(nodeRows[currRouteNodes[i]], col, 1.0);
         }
@@ -883,9 +846,40 @@ void BranchAndPrice::addGeneratedColumn(const Label& l)
             currCost+=c[arcs[g.id(currRouteNodes[i-1])][g.id(currRouteNodes[i])]];
         }
     }
-    //cout << endl;
+    if(COLUMN_PRINT) cout << endl;
     masterLP.coeff(vehicleNumberRow, col, 1);
     masterLP.objCoeff(col, currCost);
+}
+
+void BranchAndPrice::printMasterLPSolution()
+{
+    cout << "Master LP solution:" << endl;
+    cout << "Number of added columns: " << cols.size() << endl;
+    for(Lp::Col col : cols){
+        if(masterLP.primal(col)>EPSILON) {
+            cout << masterLP.primal(col) << endl;
+        }
+    }
+    for(ListDigraph::NodeIt node(g); node !=INVALID; ++node) {
+        if(g.id(node)!=0) {
+            cout << g.id(node) << " . node: ";
+            cout << masterLP.primal(startCols[node]) << endl;
+        }
+    }
+    cout.precision(12);
+    cout << "Vehicle number: " << masterLP.primal(vehicleNumberCol) << endl;
+    cout << "Total cost: " << masterLP.primal() << endl;
+
+
+    //Calculate dual cost
+    double dualCost=0;
+    for(Lp::RowIt row(masterLP); row!=INVALID; ++row){
+        dualCost+=masterLP.dual(row);
+    }
+    dualCost-=masterLP.dual(vehicleNumberRow);
+    //dualCost-=masterLP.dual(totalCostRow);
+    cout << "Dual cost: " << dualCost << endl;
+    cout << endl;
 }
 
 void BranchAndPrice::printMasterLPMatrix(){
@@ -1222,6 +1216,7 @@ void BranchAndPrice::saveSolution(vector<vector<ListDigraph::Node>> &solution,
     }
 }
 
+/*
 ClarkeWright::ClarkeWright(
         ListDigraph& in_g,
         int& in_n,
@@ -1291,3 +1286,4 @@ void ClarkeWright::run()
 
     }
 }
+ */

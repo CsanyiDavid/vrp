@@ -89,8 +89,13 @@ int main(){
             }
         } else if (input=="branchandprice" || input=="bap") {
             vrp.callBranchAndPrice();
+        } else if(input=="ir") {
+            if(readInitData(costumerCnt, seed, maxWeight)) {
+                vrp.init(costumerCnt, seed, maxWeight);
+                vrp.callBranchAndPrice();
+            }
         } else if(input=="clarkewright"  || input=="cw"){
-            vrp.callClarkeWright();
+            //vrp.callClarkeWright();
         } else if (input=="help" || input=="h"){
                 cout << "exit(e): \t exit from the program" << endl;
                 cout << "init(i): \t initialize the problem with costumer count, random seed" << endl;
