@@ -78,6 +78,8 @@ private:
     Lp::Col vehicleNumberCol;
     Lp::Row vehicleNumberRow;
 
+    vector<ListDigraph::Arc> branchedArcs;
+
     //Best solution
     ListDigraph::ArcMap<double> arcUse;
     double bestCost=BIG_VALUE;
@@ -92,6 +94,7 @@ public:
     void branchAndBound();
     void printMasterLPSolution();
     void printMasterLPMatrix();
+    void printBranchedArcs();
     void saveSolution(vector<vector<ListDigraph::Node>>& solution, int& solutionCost);
 
     friend class MarginalCost;
@@ -178,12 +181,15 @@ public:
     void printCost(int sourceId, int targetId);
     ListDigraph::Node nodeFromLatLon(double latitude, double longitude);
     void checkMIP(bool printEps=false,
-                  vector<tuple<int, int, int>> conditions=vector<tuple<int, int, int>>(0));
+                  bool printSolutionArcs=false,
+                  vector<tuple<int, int, int>> conditions=vector<tuple<int, int, int>>(0)
+                  );
     void printToEpsCheckMIP(const string &, const Mip& mip,
                             const ListDigraph::ArcMap<Mip::Col>& cols);
     void callBranchAndPrice();
     //void printRoutes(int index=-1);
     void printToEps(const string& filename);
+    void printSolution();
     //void callClarkeWright();
 
 private:

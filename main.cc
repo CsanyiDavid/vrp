@@ -59,6 +59,8 @@ int main(){
             }
         } else if(input=="check" || input=="c") {
             vrp.checkMIP(false);
+        } else if(input=="checkprintsolutionarcs"){
+            vrp.checkMIP(false, true);
         } else if (input=="checkwithconditions" || input=="cc"){
             cout << "Enter the conditions or invalid value to end" << endl;
             int sId, tId, value;
@@ -97,12 +99,14 @@ int main(){
                     conditions.push_back(tuple<int, int, int>(sId, tId, value));
                 }
             }
-            vrp.checkMIP(false, conditions);
-        } else if(input=="print" || input=="p"){
+            vrp.checkMIP(false, false, conditions);
+        } else if(input=="print" || input=="p") {
             string name;
             cout << "Eps file's name: ";
             cin >> name;
             vrp.printToEps(name);
+        } else if(input=="printsolution" || input=="ps"){
+            vrp.printSolution();
        } else if(input=="printcost" || input=="pc"){
             bool error=false;
             int sId;
@@ -140,8 +144,10 @@ int main(){
                 cout << "init(i): \t initialize the problem with costumer count, random seed" << endl;
                 cout << "\t\t and maximum demand of a costumer" << endl;
                 cout << "check(c): \t solve the problem with the CPLEX MIP" << endl;
+                cout << "checkprintsolutionarcs" << endl;
                 cout << "checkwithconditions(cc)" << endl;
                 cout << "print(p): \t print the map and the found solution to an eps file" << endl;
+                cout << "printsolution(ps)" << endl;
                 cout << "printcost(pc):\t print the cost between two nodes" << endl;
                 cout << "branchandprice(bap)" << endl;
                 cout << "clarkewright(cw)" << endl;
