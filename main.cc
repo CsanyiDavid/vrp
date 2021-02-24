@@ -46,7 +46,6 @@ int main(){
     VRP vrp("hun-sc-ncn.lgf");
     if(PRINT) cout << "(Type help for the available commands)" << endl;
     string input;
-
     //Input and initialization check is done in the vrp class
     while(true){
         cout << endl << " >> ";
@@ -137,8 +136,6 @@ int main(){
                 vrp.init(costumerCnt, seed, maxWeight);
                 vrp.callBranchAndPrice();
             }
-        } else if(input=="clarkewright"  || input=="cw"){
-            //vrp.callClarkeWright();
         } else if (input=="help" || input=="h"){
                 cout << "exit(e): \t exit from the program" << endl;
                 cout << "init(i): \t initialize the problem with costumer count, random seed" << endl;
@@ -150,7 +147,6 @@ int main(){
                 cout << "printsolution(ps)" << endl;
                 cout << "printcost(pc):\t print the cost between two nodes" << endl;
                 cout << "branchandprice(bap)" << endl;
-                cout << "clarkewright(cw)" << endl;
                 cout << "help(h): \t print the list of commands" << endl;
         } else {
             cout << "unkown command" << endl;

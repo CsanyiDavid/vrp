@@ -7,6 +7,7 @@
 using namespace std;
 using namespace lemon;
 
+///Prints errorType and aborts program running if bo is false
 void myAssert(bool bo, const string& errorType)
 {
     if(!bo) {
@@ -50,6 +51,7 @@ CoordMap::Value CoordMap::operator[](const Key& node) const {
     return lemon::dim2::Point<double>(y, x);
 }
 
+///Calculates haversine distance between two map nodes from longitudes and langitudes
 double haversineDist(double lat1, double lon1, double lat2, double lon2){
     lat1 = lat1 / 180 * lemon::PI;
     lon1 = lon1 / 180 * lemon::PI;
@@ -426,7 +428,7 @@ void VRP::printToEpsCheckMIP(const string& filename, const Mip& mip,
 ///Creates a BranchAndPrice class, runs the algorithm and saves the solution
 void VRP::callBranchAndPrice(){
     if(isInitialized) {
-        BranchAndPrice bap(g, n, Q, nodes, arcs, c, q);
+        BranchAndPrice bap(g, n, Q, arcs, c, q);
         bap.branchAndBound();
         bap.saveSolution(solution, solutionCost);
     } else {
@@ -526,22 +528,10 @@ void VRP::printSolution()
     }
 }
 
-/*
-void VRP::callClarkeWright(){
-    if(isInitialized) {
-        ClarkeWright cw(g, n, Q, nodes, arcs, c, q);
-        cw.calculateSavings();
-    } else {
-        cerr << "Not initialized!" << endl;
-    }
-}
-*/
-
 BranchAndPrice::BranchAndPrice(
         ListDigraph& in_g,
-        int& in_n,
-        int& in_Q,
-        vector<ListDigraph::Node>& in_nodes,
+        const int& in_n,
+        const int& in_Q,
         vector<vector<ListDigraph::Arc>>& in_arcs,
         ListDigraph::ArcMap<int>& in_c,
         ListDigraph::NodeMap<int>& in_q
@@ -549,7 +539,6 @@ BranchAndPrice::BranchAndPrice(
         : g{in_g},
           n{in_n},
           Q{in_Q},
-          nodes{in_nodes},
           arcs{in_arcs},
           c{in_c},
           q{in_q},
@@ -563,7 +552,7 @@ BranchAndPrice::BranchAndPrice(
 void BranchAndPrice::createMasterLP()
 {
     createdMasterLP = true;
-    masterLP.clear();
+    //masterLP.clear();
     cols.resize(0);
     routeNodes.resize(0);
 
@@ -789,8 +778,6 @@ bool BranchAndPrice::extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels,
 bool BranchAndPrice::generateColumn()
 {
     if(COLUMN_PRINT) cout << "Generating column" << endl;
-    static int generationCnt=0;
-    ++generationCnt;
     Timer timer(true);
     MarginalCost mc{*this};
     ListDigraph::NodeMap<NodeLabels> nodeLabels(g);
@@ -809,25 +796,21 @@ bool BranchAndPrice::generateColumn()
             }
             if(extendLabel(nodeLabels, node, mc)){
                 notExtendedCnt=0;
-                if(generationCnt<5000){
-                    while(nextCheckDepotIndex < static_cast<int>
-                        (nodeLabels[depot].labelList.size()))
-                    {
-                        if(nodeLabels[depot].labelList[nextCheckDepotIndex].
-                                cost<-EPSILON)
-                        {
-                            if(COLUMN_PRINT) {
-                                cout << "Early exit!" << endl;
-                                cout << "Found min cost: "
-                                    << nodeLabels[depot].labelList[nextCheckDepotIndex].cost << endl;
-                                cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
-                            }
-                            addGeneratedColumn(nodeLabels[depot].
-                                    labelList[nextCheckDepotIndex]);
-                            return true;
-                        } else {
-                            ++nextCheckDepotIndex;
+                while (nextCheckDepotIndex < static_cast<int>
+                (nodeLabels[depot].labelList.size())) {
+                    if (nodeLabels[depot].labelList[nextCheckDepotIndex].
+                            cost < -EPSILON) {
+                        if (COLUMN_PRINT) {
+                            cout << "Early exit!" << endl;
+                            cout << "Found min cost: "
+                                 << nodeLabels[depot].labelList[nextCheckDepotIndex].cost << endl;
+                            cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
                         }
+                        addGeneratedColumn(nodeLabels[depot].
+                                labelList[nextCheckDepotIndex]);
+                        return true;
+                    } else {
+                        ++nextCheckDepotIndex;
                     }
                 }
             } else {
@@ -986,11 +969,12 @@ void BranchAndPrice::branchAndBound()
     if (PRINT) {
         cout << endl;
         cout << "Finished" << endl;
-        printBranchedArcs();
+        //printBranchedArcs();
     }
     //cout << n - 1 << " " << seed << " " << maxWeight << endl;
     myAssert(countArcs(g) == n * (n - 1), "Wrong arc count at the end of branchAndBound!");
     cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
+    cout << "Elapsed user time: " << timer.userTime() << "s" << endl;
     cout << "Solution: " << bestCost << endl;
     cout << "Vehicle count: " << bestSolutionVehicle << endl;
     cout << "Number of added cols: " << cols.size() << endl;
@@ -1040,9 +1024,7 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
             for(int j=0; j<n; ++j) {
                 if (i != j && arcs[i][j] != INVALID) {
                     ListDigraph::Arc arc;
-                    cout << i << " " << j << endl;
                     arc = arcs[i][j];
-                    cout << "done" << endl;
                     if (!isWhole(arcUse[arc])) {
                         if (COLUMN_PRINT) {
                             cout << g.id(g.source(arc)) << " " << g.id(g.target(arc)) << " " << arcUse[arc] << "  "

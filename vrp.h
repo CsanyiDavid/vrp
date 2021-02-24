@@ -31,7 +31,6 @@
 using namespace std;
 using namespace lemon;
 
-///Prints errorType and aborts program running if bo is false
 void myAssert(bool bo, const string& errorType);
 
 ///Creates plane coordinates from longitude and latitude
@@ -48,7 +47,6 @@ public:
     Value operator[](const Key& node) const;
 };
 
-///Calculates haversine distance between two map nodes from longitudes and langitudes
 double haversineDist(double lat1, double lon1, double lat2, double lon2);
 
 class MarginalCost;
@@ -62,9 +60,8 @@ private:
 
     //The problem
     ListDigraph& g;
-    int& n;     //costumer+depo count
-    int& Q;     //vehicle capacity
-    vector<ListDigraph::Node>& nodes;
+    const int& n;     //costumer+depo count
+    const int& Q;     //vehicle capacity
     vector<vector<ListDigraph::Arc>>& arcs;
     ListDigraph::ArcMap<int>& c;     //travel distance (meters)
     ListDigraph::NodeMap<int>& q;   //costumer demands
@@ -87,8 +84,7 @@ private:
     vector<int> bestSolutionColIndexs;
     ListDigraph::NodeMap<double> bestSolutionStartCols;
 public:
-    BranchAndPrice(ListDigraph& in_g, int& n, int& in_Q,
-                   vector<ListDigraph::Node>& in_nodes,
+    BranchAndPrice(ListDigraph& in_g, const int& n, const int& in_Q,
                    vector<vector<ListDigraph::Arc>>& in_arcs,
                    ListDigraph::ArcMap<int>& in_c, ListDigraph::NodeMap<int>& in_q);
     void branchAndBound();
