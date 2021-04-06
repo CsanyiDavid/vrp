@@ -283,7 +283,7 @@ ListDigraph::Node VRP::nodeFromLatLon(double latitude, double longitude)
     return closestNode;
 }
 
-///Solve the VRP with the CPLEX MIP, extra conditions on arcs can be added
+///Solves the VRP with the CPLEX MIP, extra conditions on arcs can be added
 void VRP::checkMIP(bool printEps, bool printSolutionArcs,
                    vector<tuple<int, int, int>> conditions)
 {
@@ -426,55 +426,26 @@ void VRP::printToEpsCheckMIP(const string& filename, const Mip& mip,
 }
 
 ///Creates a BranchAndPrice class, runs the algorithm and saves the solution
-void VRP::callBranchAndPrice(){
+void VRP::callBranchAndPrice(double smoothingParameter){
     if(isInitialized) {
-        BranchAndPrice bap(g, n, Q, arcs, c, q);
+        BranchAndPrice bap(g, n, Q, arcs, c, q, smoothingParameter);
         bap.branchAndBound();
         bap.saveSolution(solution, solutionCost);
+        cerr << "Save done" << endl;
     } else {
         cerr << "Not initialized!" << endl;
     }
+    cerr << "After if" << endl;
 }
-
-/*void VRP::printRoutes(int index){
-    if(createdMasterLP) {
-        if (0 <= index && index < static_cast<int>(routeNodes.size())) {
-            cout << "Print route with index: " << index << endl;
-            for (unsigned int j = 0; j < routeNodes[index].size(); ++j) {
-                cout << g.id(routeNodes[index][j]) << " ";
-            }
-            cout << endl;
-            cout << "Cost: " << masterLP.objCoeff(cols[index]) << endl;
-        } else if (index == -1) {
-            cout << "Print routes: " << endl;
-            for (unsigned int i = 0; i < routeNodes.size(); ++i) {
-                for (unsigned int j = 0; j < routeNodes[i].size(); ++j) {
-                    cout << g.id(routeNodes[i][j]) << " ";
-                }
-                cout << "    Cost: " << masterLP.objCoeff(cols[i]) << endl;
-            }
-            cout << endl;
-            for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
-                if (g.id(node) != 0) {
-                    cout << "0 " << g.id(node) << " 0   Cost: ";
-                    cout << masterLP.objCoeff(startCols[node]) << endl;
-                }
-            }
-            cout << endl;
-        }
-    } else {
-        cerr << "Master LP is not created" << endl;
-    }
-}*/
 
 void VRP::printToEps(const string& filename){
     if(isInitialized) {
         Timer timer(true);
         cout << "Printing to eps..." << flush;
         ListDigraph::ArcMap<Color> arcColor(map, Color(
-                170, 255, 0));
+                200, 200, 200));
         ListDigraph::ArcMap<double> arcWidth(map,
-                                             0.035);
+                                             0.030);
         for (unsigned int i = 0; i < solution.size(); ++i) {
             for (unsigned int j = 1; j < solution[i].size(); ++j) {
                 int sId = g.id(solution[i][j - 1]);
@@ -482,7 +453,7 @@ void VRP::printToEps(const string& filename){
                 for (unsigned int a = 0; a < paths[sId][tId].size(); ++a) {
                     ListDigraph::Arc currArc;
                     currArc = paths[sId][tId][a];
-                    arcWidth[currArc] = 0.15;
+                    arcWidth[currArc] = 0.45;
                     arcColor[currArc] = Color(255, 0, 0);
                 }
             }
@@ -493,10 +464,10 @@ void VRP::printToEps(const string& filename){
         ListDigraph::Node node = INVALID;
         for (int i = 1; i < n; ++i) {
             node = map.nodeFromId(depotAndCostumers[i]);
-            nodeSize[node] = 0.2;
+            nodeSize[node] = 0.4;
         }
         nodeShape[map.nodeFromId(depotAndCostumers[0])] = 1;
-        nodeSize[map.nodeFromId(depotAndCostumers[0])] = 0.5;
+        nodeSize[map.nodeFromId(depotAndCostumers[0])] = 0.6;
 
         graphToEps(map, filename)
                 .coords(coords)
@@ -534,7 +505,8 @@ BranchAndPrice::BranchAndPrice(
         const int& in_Q,
         vector<vector<ListDigraph::Arc>>& in_arcs,
         ListDigraph::ArcMap<int>& in_c,
-        ListDigraph::NodeMap<int>& in_q
+        ListDigraph::NodeMap<int>& in_q,
+        double in_smoothingParameter
 )
         : g{in_g},
           n{in_n},
@@ -544,6 +516,10 @@ BranchAndPrice::BranchAndPrice(
           q{in_q},
           startCols{g},
           nodeRows{g},
+          smoothingParameter{in_smoothingParameter},
+          ySep{g},
+          yIn{g},
+          subgradient{g},
           arcUse{g},
           bestSolutionStartCols{g}
 {
@@ -609,9 +585,9 @@ public:
         tNode = bap.g.target(arc);
         double pi_s;
         if (bap.g.id(sNode) == 0) {
-            pi_s = bap.masterLP.dual(bap.vehicleNumberRow);
+            pi_s = bap.ySepVehicle;
         } else {
-            pi_s = bap.masterLP.dual(bap.nodeRows[sNode]);
+            pi_s = bap.ySep[sNode];
         }
         double cost = 0;
         cost = bap.c[
@@ -621,10 +597,12 @@ public:
     }
 };
 
-bool BranchAndPrice::solveMasterLP() {
+bool BranchAndPrice::solveMasterLPwithSmoothing(){
     Timer timer(true);
     if (PRINT) cout << "Solving the master problem.. " << endl;
     int itCnt = 0;
+    alpha=0;
+    bool continueIteration=true;
     do {
         ++itCnt;
         if (cols.size() % 1000 == 0 && cols.size() > 0) {
@@ -649,7 +627,57 @@ bool BranchAndPrice::solveMasterLP() {
                 cout << "unbounded" << endl;
                 return false;
         }
-    } while (generateColumn());
+        for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
+            ySep[node]=masterLP.dual(nodeRows[node])*(1-alpha)+yIn[node]*alpha;
+        }
+        ySepVehicle = masterLP.dual(vehicleNumberRow)*(1-alpha)+yInVehicle*alpha;
+
+        continueIteration = generateColumn();
+        if(!continueIteration){
+            continueIteration = misPricingSchedule();
+        }
+
+        //calculate szubgradient dotproduct yOut-yIn
+        double dotproduct=0;
+        for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
+            dotproduct+=subgradient[node]*(masterLP.dual(nodeRows[node])-yIn[node]);
+        }
+        dotproduct+=subgradientVehicle*(masterLP.dual(vehicleNumberRow)-yInVehicle);
+
+
+        if(smoothingParameter==-1) {
+            if (itCnt == 1) {
+                alpha = 0.5;
+                cout << "AUTO SMOOTHING own" << endl;
+            } else if (dotproduct < 0) {
+                alpha += (1 - alpha) * 0.1;
+            } else {
+                alpha = alpha - 0.1;
+                if (alpha < EPSILON) {
+                    alpha = 0;
+                }
+            }
+        } else if(smoothingParameter==-2) {
+            if (itCnt == 1) {
+                alpha = 0.5;
+                cout << "AUTO SMOOTHING article" << endl;
+            } else if (dotproduct > 0) {
+                alpha += (1 - alpha) * 0.1;
+            } else {
+                alpha = alpha - 0.1;
+                if (alpha < EPSILON) {
+                    alpha = 0;
+                }
+            }
+        } else if(itCnt==1) {
+            alpha=smoothingParameter;
+            cout << "CONSTANT ALPHA = " << alpha << endl;
+        }
+        for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
+            yIn[node]=ySep[node];
+        }
+        yInVehicle = ySepVehicle;
+    } while (continueIteration);
     if (PRINT) {
         cout << "Master LP solved, elapsed: " << timer.realTime() << "s" << endl;
         cout << "User time: " << timer.userTime() << "s" << endl;
@@ -806,9 +834,28 @@ bool BranchAndPrice::generateColumn()
                                  << nodeLabels[depot].labelList[nextCheckDepotIndex].cost << endl;
                             cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
                         }
-                        addGeneratedColumn(nodeLabels[depot].
-                                labelList[nextCheckDepotIndex]);
-                        return true;
+
+                        Label l = nodeLabels[depot].labelList[nextCheckDepotIndex];
+
+                        //calculate if mis-pricing
+                        vector<ListDigraph::Node> currRouteNodes;
+                        double c_i;
+                        getRouteFromLabel(l, currRouteNodes, c_i);
+                        double dotproduct=0; //y_out*a_{i^t}
+                        for(unsigned int i=0; i<currRouteNodes.size(); ++i) {
+                            if(currRouteNodes[i]!=g.nodeFromId(0)){
+                                dotproduct+=masterLP.dual(nodeRows[currRouteNodes[i]]);
+                            }
+                        }
+                        calculateSubgradient(l);
+
+                        if(c_i-dotproduct<-EPSILON){
+                            addGeneratedColumn(currRouteNodes, c_i);
+                            return true;
+                        } else {
+                            cout << "Early mis-pricing" << endl;
+                            return false;
+                        }
                     } else {
                         ++nextCheckDepotIndex;
                     }
@@ -829,43 +876,109 @@ bool BranchAndPrice::generateColumn()
     }
     if(COLUMN_PRINT) cout << "Found min cost: " << minCost << endl;
     if(COLUMN_PRINT) cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
-    if(minCost<-EPSILON){
-        addGeneratedColumn(nodeLabels[depot].labelList[minIndex]);
+
+
+    Label l = nodeLabels[depot].labelList[minIndex];
+
+    //calculate if mis-pricing
+    vector<ListDigraph::Node> currRouteNodes;
+    double c_i;
+    getRouteFromLabel(l, currRouteNodes, c_i);
+    double dotproduct=0; //y_out*a_{i^t}
+    for(unsigned int i=0; i<currRouteNodes.size(); ++i) {
+        if(currRouteNodes[i]!=g.nodeFromId(0)){
+            dotproduct+=masterLP.dual(nodeRows[currRouteNodes[i]]);
+        }
+    }
+    calculateSubgradient(l);
+
+    if(c_i-dotproduct<-EPSILON){
+        addGeneratedColumn(currRouteNodes, c_i);
         return true;
     } else {
+        cout << "Late mis-pricing" << endl;
         return false;
     }
 }
 
-void BranchAndPrice::addGeneratedColumn(const Label& l)
-{
+void BranchAndPrice::calculateSubgradient(const Label& l){
+    for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
+        subgradient[node]=1;
+        if(l.nodeUse[node]>1){
+            subgradient[node]-=n;
+        }
+    }
+    subgradientVehicle=1-n;
+}
+
+bool BranchAndPrice::misPricingSchedule(){
+    cout << "Mis-pricing sequence started!" << endl;
+    cout << "Alpha = " << alpha << endl;
+    int k=2;
+    double tildeAlpha;
+    ListDigraph::NodeMap<double> yIIn(g);
+    for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
+        yIIn[node] = yIn[node];
+    }
+    double yIInVehicle=yInVehicle;
+    bool generatedValidCuttingPlane=false;
+    do{
+        tildeAlpha=1-k*(1-alpha);
+        if(tildeAlpha<EPSILON){
+            tildeAlpha = 0;
+        }
+        cout << "TildeAlpha: " << tildeAlpha << endl;
+        for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
+            ySep[node]=tildeAlpha*yIIn[node]+(1-tildeAlpha)*masterLP.dual(nodeRows[node]);
+        }
+        ySepVehicle=tildeAlpha*yIInVehicle+(1-tildeAlpha)*masterLP.dual(vehicleNumberRow);
+
+        generatedValidCuttingPlane = generateColumn();
+        ++k;
+    } while(!generatedValidCuttingPlane && tildeAlpha>EPSILON);
+
+    return generatedValidCuttingPlane;
+}
+
+///Calculates route nodes in order and route cost from a label
+void BranchAndPrice::getRouteFromLabel(const Label&l,
+                                        vector<ListDigraph::Node>& currRouteNodes,
+                                        double& cost){
     int nodeCount=l.nodeCnt+1;
-    Lp::Col col;
-    col=masterLP.addCol();
-    cols.push_back(col);
-    vector<ListDigraph::Node> currRouteNodes(nodeCount, INVALID);
+    currRouteNodes.resize(nodeCount, INVALID);
     currRouteNodes[0]=g.nodeFromId(0);
     for(ListDigraph::NodeIt node(g); node != INVALID; ++node){
         if(l.nodeUse[node]!=0) {
             currRouteNodes[l.nodeUse[node]] = node;
         }
     }
+    cost=0;
+    for(int i=0; i<nodeCount; ++i){
+        if(i>0){
+            cost+=c[arcs[g.id(currRouteNodes[i-1])][g.id(currRouteNodes[i])]];
+        }
+    }
+}
+
+///Adds a new column to the master problem from routeNodes vector and route cost
+void BranchAndPrice::addGeneratedColumn(vector<ListDigraph::Node>& currRouteNodes,
+                                        double& cost)
+{
+    Lp::Col col;
+    col=masterLP.addCol();
+    cols.push_back(col);
     routeNodes.push_back(currRouteNodes);
     masterLP.colLowerBound(col, 0.0);
-    int currCost=0;
     if(COLUMN_PRINT) cout << "Added column's nodes:  ";
-    for(int i=0; i<nodeCount; ++i){
+    for(unsigned int i=0; i<currRouteNodes.size(); ++i){
         if(COLUMN_PRINT) cout << g.id(currRouteNodes[i]) << " ";
         if(g.id(currRouteNodes[i]) != 0) {
             masterLP.coeff(nodeRows[currRouteNodes[i]], col, 1.0);
         }
-        if(i>0){
-            currCost+=c[arcs[g.id(currRouteNodes[i-1])][g.id(currRouteNodes[i])]];
-        }
     }
     if(COLUMN_PRINT) cout << endl;
     masterLP.coeff(vehicleNumberRow, col, 1);
-    masterLP.objCoeff(col, currCost);
+    masterLP.objCoeff(col, cost);
 }
 
 void BranchAndPrice::printMasterLPSolution()
@@ -901,59 +1014,6 @@ void BranchAndPrice::printMasterLPSolution()
     dualCost-=masterLP.dual(vehicleNumberRow);
     //dualCost-=masterLP.dual(totalCostRow);
     cout << "Dual cost: " << dualCost << endl;
-    cout << endl;
-}
-
-void BranchAndPrice::printMasterLPMatrix(){
-    cout << "PRINT MASTERLP MATRIX: " << endl;
-    cout << "\t";
-    for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
-        cout << masterLP.primal(col) << "\t  ";
-    }
-    cout << "|  " << endl;
-
-
-    cout << "\t";
-    for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
-        cout << "-" << "\t  ";
-    }
-    cout << "|  " << endl;
-
-
-    for(Lp::RowIt row(masterLP); row !=INVALID; ++row){
-        cout << masterLP.dual(row) << " |\t";
-        for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
-            cout << masterLP.coeff(row, col) << "\t  ";
-        }
-        cout << "|  ";
-        cout << masterLP.rowLowerBound(row) << "  ";
-        cout << masterLP.rowUpperBound(row) << endl;
-    }
-
-
-    cout << "\t";
-    for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
-        cout << "-" << "\t  ";
-    }
-    cout << "|  " << endl;
-
-
-    cout << "\t";
-    for(Lp::ColIt col(masterLP); col!=INVALID; ++col){
-        cout << masterLP.objCoeff(col) << "\t  ";
-    }
-    cout << "|  " << endl;
-
-    cout << endl;
-}
-
-void BranchAndPrice::printBranchedArcs()
-{
-    cout << "Branched arcs: " << endl;
-    for(unsigned int i=0; i<branchedArcs.size(); ++i){
-        cout << g.id(g.source(branchedArcs[i])) << "->";
-        cout << g.id(g.target(branchedArcs[i])) << endl;
-    }
     cout << endl;
 }
 
@@ -993,7 +1053,7 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
 {
     ++branchedNodes;
     if(PRINT) cout << "New branching node: " << branchedNodes << endl;
-    if(!solveMasterLP()){
+    if(!solveMasterLPwithSmoothing()){
         return;
     } else if(masterLP.primal()>bestCost) {
         if(PRINT) cout << "BOUND" << endl;
@@ -1126,7 +1186,7 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
             //Branch on this arc
             if(PRINT) cout << "Branch on arc with use: ";
             if(PRINT) cout << arcUse[arcToBranch] << endl;
-            branchedArcs.push_back(arcToBranch);
+            //branchedArcs.push_back(arcToBranch);
             if(PRINT) cout << "Source: " << g.id(g.source(arcToBranch));
             if(PRINT) cout << ", target: " << g.id(g.target(arcToBranch)) << endl;
 
@@ -1298,75 +1358,3 @@ void BranchAndPrice::saveSolution(vector<vector<ListDigraph::Node>> &solution,
         cerr << "The solution is empty!" << endl;
     }
 }
-
-/*
-ClarkeWright::ClarkeWright(
-        ListDigraph& in_g,
-        int& in_n,
-        int& in_Q,
-        vector<ListDigraph::Node>& in_nodes,
-        vector<vector<ListDigraph::Arc>>& in_arcs,
-        ListDigraph::ArcMap<int>& in_c,
-        ListDigraph::NodeMap<int>& in_q
-)
-        : g{in_g},
-          n{in_n},
-          Q{in_Q},
-          nodes{in_nodes},
-          arcs{in_arcs},
-          c{in_c},
-          q{in_q}
-{
-}
-
-void ClarkeWright::calculateSavings()
-{
-    cout << "Calculating savings" << endl;
-    for(ListDigraph::NodeIt nodeI(g); nodeI!=INVALID; ++nodeI){
-        for(ListDigraph::NodeIt nodeJ(g); nodeJ!=INVALID; ++nodeJ){
-            if(nodeI!=nodeJ && nodeI!=g.nodeFromId(0) && nodeJ!=g.nodeFromId(0)) {
-                int currSaving = 0;
-                currSaving += c[arcs[g.id(nodeI)][0]];
-                currSaving += c[arcs[0][g.id(nodeJ)]];
-                currSaving -= c[arcs[g.id(nodeI)][g.id(nodeJ)]];
-                if(currSaving>0) {
-                    savings.push_back(savingType(nodeI, nodeJ, currSaving));
-                }
-            }
-        }
-    }
-    bool (*savingComp)(const savingType&, const savingType&)=[](const savingType& s1, const savingType& s2){return (get<2>(s1)) > (get<2>(s2));};
-    std::sort(savings.begin(), savings.end(), savingComp);
-    printSavings();
-}
-
-void ClarkeWright::printSavings() {
-    cout << "Print savings:" << endl;
-    for (unsigned int i = 0; i < savings.size(); ++i){
-        cout << g.id(get<0>(savings[i])) << "->";
-        cout << g.id(get<1>(savings[i])) << " : ";
-        cout << get<2>(savings[i]) << endl;
-    }
-}
-
-void ClarkeWright::run()
-{
-    ListDigraph::Node depo=g.nodeFromId(0);
-    vector<vector<ListDigraph::Node>> routes;
-    map<ListDigraph::Node, int> nodeRouteIndexMap;
-    routes.reserve(n);
-    for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
-        if(node!=depo) {
-            vector<ListDigraph::Node> temp;
-            temp.push_back(depo);
-            temp.push_back(node);
-            temp.push_back(depo);
-            routes.push_back(temp);
-            nodeRouteIndexMap[node]=routes.size()-1;
-        }
-    }
-    for(auto currSaving : savings){
-
-    }
-}
- */

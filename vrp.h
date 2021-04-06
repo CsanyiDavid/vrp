@@ -75,7 +75,15 @@ private:
     Lp::Col vehicleNumberCol;
     Lp::Row vehicleNumberRow;
 
-    vector<ListDigraph::Arc> branchedArcs;
+    //Smoothing
+    double smoothingParameter;
+    ListDigraph::NodeMap<double> ySep;
+    ListDigraph::NodeMap<double> yIn;
+    ListDigraph::NodeMap<double> subgradient;
+    double ySepVehicle;
+    double yInVehicle;
+    double subgradientVehicle;
+    double alpha;
 
     //Best solution
     ListDigraph::ArcMap<double> arcUse;
@@ -86,55 +94,31 @@ private:
 public:
     BranchAndPrice(ListDigraph& in_g, const int& n, const int& in_Q,
                    vector<vector<ListDigraph::Arc>>& in_arcs,
-                   ListDigraph::ArcMap<int>& in_c, ListDigraph::NodeMap<int>& in_q);
+                   ListDigraph::ArcMap<int>& in_c, ListDigraph::NodeMap<int>& in_q,
+                   double smoothingParameter);
     void branchAndBound();
     void printMasterLPSolution();
-    void printMasterLPMatrix();
-    void printBranchedArcs();
     void saveSolution(vector<vector<ListDigraph::Node>>& solution, int& solutionCost);
 
     friend class MarginalCost;
     friend class Label;
 private:
     void createMasterLP();
-    bool solveMasterLP();
+    bool solveMasterLPwithSmoothing();
     bool extendLabel( ListDigraph::NodeMap<NodeLabels>& nodeLabels, const ListDigraph::Node& node,
                       MarginalCost& mc);
     bool generateColumn();
-    void addGeneratedColumn(const Label& l);
+    void calculateSubgradient(const Label& l);
+    bool misPricingSchedule();
+    void getRouteFromLabel(const Label& l, vector<ListDigraph::Node>& currRouteNodes,
+                            double& cost);
+    void addGeneratedColumn(vector<ListDigraph::Node>& currRouteNodes,
+                            double& cost);
     void recursiveBranch(int&  branchedNodes);
     void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
                          vector<pair<ListDigraph::Node, int>>& changedStartCosts);
     void calculateArcUse();
 };
-
-/*
-typedef tuple<ListDigraph::Node, ListDigraph::Node, int> savingType;
-
-///Solves the VRP with the Clarke-Wright algorithm
-class ClarkeWright{
-private:
-    //The problem
-    ListDigraph& g;
-    int& n;     //costumer+depo count
-    int& Q;     //vehicle capacity
-    vector<ListDigraph::Node>& nodes;
-    vector<vector<ListDigraph::Arc>>& arcs;
-    ListDigraph::ArcMap<int>& c;     //travel distance (meters)
-    ListDigraph::NodeMap<int>& q;   //costumer demands
-
-    //
-    vector<savingType> savings;
-public:
-    ClarkeWright(ListDigraph& in_g, int& n, int& in_Q,
-                 vector<ListDigraph::Node>& in_nodes,
-                 vector<vector<ListDigraph::Arc>>& in_arcs,
-                 ListDigraph::ArcMap<int>& in_c, ListDigraph::NodeMap<int>& in_q);
-    void calculateSavings();
-    void printSavings();
-    void run();
-};
-*/
 
 /// Manages and stores the VRP: reads map, finds shortest paths, calls solvers, prints solution
 class VRP{
@@ -182,11 +166,9 @@ public:
                   );
     void printToEpsCheckMIP(const string &, const Mip& mip,
                             const ListDigraph::ArcMap<Mip::Col>& cols);
-    void callBranchAndPrice();
-    //void printRoutes(int index=-1);
+    void callBranchAndPrice(double smoothingParameter);
     void printToEps(const string& filename);
     void printSolution();
-    //void callClarkeWright();
 
 private:
     void generateCostumersGraph();

@@ -130,11 +130,19 @@ int main(){
                 cerr << "Invalid value" << endl;
             }
         } else if (input=="branchandprice" || input=="bap") {
-            vrp.callBranchAndPrice();
+            double smoothingParameter;
+            cout << "Smoothing parameter: " << endl;
+            cin >> smoothingParameter;
+            vrp.callBranchAndPrice(smoothingParameter);
+            cout << "Branch and price calling done from vrp" << endl;
         } else if(input=="ir") {
             if(readInitData(costumerCnt, seed, maxWeight)) {
                 vrp.init(costumerCnt, seed, maxWeight);
-                vrp.callBranchAndPrice();
+                double smoothingParameter;
+                cout << "Smoothing parameter: ";
+                cin >> smoothingParameter;
+                vrp.callBranchAndPrice(smoothingParameter);
+                cerr << "Done" << endl;
             }
         } else if (input=="help" || input=="h"){
                 cout << "exit(e): \t exit from the program" << endl;
