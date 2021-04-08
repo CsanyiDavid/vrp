@@ -431,6 +431,9 @@ void VRP::callBranchAndPrice(double smoothingParameter){
         BranchAndPrice bap(g, n, Q, arcs, c, q, smoothingParameter);
         bap.branchAndBound();
         bap.saveSolution(solution, solutionCost);
+        if(smoothingParameter==-1) {
+            bap.printAlphas();
+        }
         cerr << "Save done" << endl;
     } else {
         cerr << "Not initialized!" << endl;
@@ -647,7 +650,7 @@ bool BranchAndPrice::solveMasterLPwithSmoothing(){
 
         if(smoothingParameter==-1) {
             if (itCnt == 1) {
-                alpha = 0.5;
+                alpha = 0.1;
                 cout << "AUTO SMOOTHING own" << endl;
             } else if (dotproduct < 0) {
                 alpha += (1 - alpha) * 0.1;
@@ -657,6 +660,7 @@ bool BranchAndPrice::solveMasterLPwithSmoothing(){
                     alpha = 0;
                 }
             }
+            alphas.push_back(alpha);
         } else if(smoothingParameter==-2) {
             if (itCnt == 1) {
                 alpha = 0.5;
@@ -1357,4 +1361,13 @@ void BranchAndPrice::saveSolution(vector<vector<ListDigraph::Node>> &solution,
     } else {
         cerr << "The solution is empty!" << endl;
     }
+}
+
+void BranchAndPrice::printAlphas(){
+    cout << "ALPHAAS:" << endl;
+    for(unsigned int i=0; i<alphas.size(); ++i){
+        cout << alphas[i] << "  ";
+    }
+    cout << endl;
+    cout << "END OF ALPHAS!" << endl;
 }

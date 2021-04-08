@@ -84,6 +84,7 @@ private:
     double yInVehicle;
     double subgradientVehicle;
     double alpha;
+    vector<double> alphas;
 
     //Best solution
     ListDigraph::ArcMap<double> arcUse;
@@ -99,6 +100,8 @@ public:
     void branchAndBound();
     void printMasterLPSolution();
     void saveSolution(vector<vector<ListDigraph::Node>>& solution, int& solutionCost);
+
+    void printAlphas();
 
     friend class MarginalCost;
     friend class Label;
