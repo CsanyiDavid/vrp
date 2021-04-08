@@ -851,6 +851,9 @@ bool BranchAndPrice::generateColumn()
                                 dotproduct+=masterLP.dual(nodeRows[currRouteNodes[i]]);
                             }
                         }
+                        if(l.nodeCnt>0) {
+                            dotproduct += masterLP.dual(vehicleNumberRow);
+                        }
                         calculateSubgradient(l);
 
                         if(c_i-dotproduct<-EPSILON){
@@ -894,8 +897,10 @@ bool BranchAndPrice::generateColumn()
             dotproduct+=masterLP.dual(nodeRows[currRouteNodes[i]]);
         }
     }
+    if(l.nodeCnt>0) {
+        dotproduct += masterLP.dual(vehicleNumberRow);
+    }
     calculateSubgradient(l);
-
     if(c_i-dotproduct<-EPSILON){
         addGeneratedColumn(currRouteNodes, c_i);
         return true;
