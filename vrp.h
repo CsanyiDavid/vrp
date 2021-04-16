@@ -65,6 +65,7 @@ private:
     vector<vector<ListDigraph::Arc>>& arcs;
     ListDigraph::ArcMap<int>& c;     //travel distance (meters)
     ListDigraph::NodeMap<int>& q;   //costumer demands
+    bool earlyStop;
 
     // The Master Problem
     Lp masterLP;
@@ -96,7 +97,7 @@ public:
     BranchAndPrice(ListDigraph& in_g, const int& n, const int& in_Q,
                    vector<vector<ListDigraph::Arc>>& in_arcs,
                    ListDigraph::ArcMap<int>& in_c, ListDigraph::NodeMap<int>& in_q,
-                   double smoothingParameter);
+                   double in_smoothingParameter, bool in_earlyStop);
     void branchAndBound();
     void printMasterLPSolution();
     void saveSolution(vector<vector<ListDigraph::Node>>& solution, int& solutionCost);
@@ -169,7 +170,7 @@ public:
                   );
     void printToEpsCheckMIP(const string &, const Mip& mip,
                             const ListDigraph::ArcMap<Mip::Col>& cols);
-    void callBranchAndPrice(double smoothingParameter);
+    void callBranchAndPrice(double smoothingParameter, bool earlyStop);
     void printToEps(const string& filename);
     void printSolution();
 

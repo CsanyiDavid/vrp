@@ -133,7 +133,10 @@ int main(){
             double smoothingParameter;
             cout << "Smoothing parameter: " << endl;
             cin >> smoothingParameter;
-            vrp.callBranchAndPrice(smoothingParameter);
+            bool earlyStop;
+            cout << "Early stop(0/1): ";
+            cin >> earlyStop;
+            vrp.callBranchAndPrice(smoothingParameter, earlyStop);
             cout << "Branch and price calling done from vrp" << endl;
         } else if(input=="ir") {
             if(readInitData(costumerCnt, seed, maxWeight)) {
@@ -141,7 +144,10 @@ int main(){
                 double smoothingParameter;
                 cout << "Smoothing parameter: ";
                 cin >> smoothingParameter;
-                vrp.callBranchAndPrice(smoothingParameter);
+                bool earlyStop;
+                cout << "Early stop(0/1): ";
+                cin >> earlyStop;
+                vrp.callBranchAndPrice(smoothingParameter, earlyStop);
                 cerr << "Done" << endl;
             }
         } else if (input=="help" || input=="h"){

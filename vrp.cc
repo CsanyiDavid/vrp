@@ -426,9 +426,9 @@ void VRP::printToEpsCheckMIP(const string& filename, const Mip& mip,
 }
 
 ///Creates a BranchAndPrice class, runs the algorithm and saves the solution
-void VRP::callBranchAndPrice(double smoothingParameter){
+void VRP::callBranchAndPrice(double smoothingParameter, bool earlyStop){
     if(isInitialized) {
-        BranchAndPrice bap(g, n, Q, arcs, c, q, smoothingParameter);
+        BranchAndPrice bap(g, n, Q, arcs, c, q, smoothingParameter, earlyStop);
         bap.branchAndBound();
         bap.saveSolution(solution, solutionCost);
         if(smoothingParameter==-1) {
@@ -509,7 +509,8 @@ BranchAndPrice::BranchAndPrice(
         vector<vector<ListDigraph::Arc>>& in_arcs,
         ListDigraph::ArcMap<int>& in_c,
         ListDigraph::NodeMap<int>& in_q,
-        double in_smoothingParameter
+        double in_smoothingParameter,
+        bool in_earlyStop
 )
         : g{in_g},
           n{in_n},
@@ -517,6 +518,7 @@ BranchAndPrice::BranchAndPrice(
           arcs{in_arcs},
           c{in_c},
           q{in_q},
+          earlyStop(in_earlyStop),
           startCols{g},
           nodeRows{g},
           smoothingParameter{in_smoothingParameter},
@@ -828,43 +830,45 @@ bool BranchAndPrice::generateColumn()
             }
             if(extendLabel(nodeLabels, node, mc)){
                 notExtendedCnt=0;
-                while (nextCheckDepotIndex < static_cast<int>
-                (nodeLabels[depot].labelList.size())) {
-                    if (nodeLabels[depot].labelList[nextCheckDepotIndex].
-                            cost < -EPSILON) {
-                        if (COLUMN_PRINT) {
-                            cout << "Early exit!" << endl;
-                            cout << "Found min cost: "
-                                 << nodeLabels[depot].labelList[nextCheckDepotIndex].cost << endl;
-                            cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
-                        }
-
-                        Label l = nodeLabels[depot].labelList[nextCheckDepotIndex];
-
-                        //calculate if mis-pricing
-                        vector<ListDigraph::Node> currRouteNodes;
-                        double c_i;
-                        getRouteFromLabel(l, currRouteNodes, c_i);
-                        double dotproduct=0; //y_out*a_{i^t}
-                        for(unsigned int i=0; i<currRouteNodes.size(); ++i) {
-                            if(currRouteNodes[i]!=g.nodeFromId(0)){
-                                dotproduct+=masterLP.dual(nodeRows[currRouteNodes[i]]);
+                if(earlyStop) {
+                    while (nextCheckDepotIndex < static_cast<int>
+                    (nodeLabels[depot].labelList.size())) {
+                        if (nodeLabels[depot].labelList[nextCheckDepotIndex].
+                                cost < -EPSILON) {
+                            if (COLUMN_PRINT) {
+                                cout << "Early exit!" << endl;
+                                cout << "Found min cost: "
+                                     << nodeLabels[depot].labelList[nextCheckDepotIndex].cost << endl;
+                                cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
                             }
-                        }
-                        if(l.nodeCnt>0) {
-                            dotproduct += masterLP.dual(vehicleNumberRow);
-                        }
-                        calculateSubgradient(l);
 
-                        if(c_i-dotproduct<-EPSILON){
-                            addGeneratedColumn(currRouteNodes, c_i);
-                            return true;
+                            Label l = nodeLabels[depot].labelList[nextCheckDepotIndex];
+
+                            //calculate if mis-pricing
+                            vector<ListDigraph::Node> currRouteNodes;
+                            double c_i;
+                            getRouteFromLabel(l, currRouteNodes, c_i);
+                            double dotproduct = 0; //y_out*a_{i^t}
+                            for (unsigned int i = 0; i < currRouteNodes.size(); ++i) {
+                                if (currRouteNodes[i] != g.nodeFromId(0)) {
+                                    dotproduct += masterLP.dual(nodeRows[currRouteNodes[i]]);
+                                }
+                            }
+                            if (l.nodeCnt > 0) {
+                                dotproduct += masterLP.dual(vehicleNumberRow);
+                            }
+                            calculateSubgradient(l);
+
+                            if (c_i - dotproduct < -EPSILON) {
+                                addGeneratedColumn(currRouteNodes, c_i);
+                                return true;
+                            } else {
+                                cout << "Early mis-pricing" << endl;
+                                return false;
+                            }
                         } else {
-                            cout << "Early mis-pricing" << endl;
-                            return false;
+                            ++nextCheckDepotIndex;
                         }
-                    } else {
-                        ++nextCheckDepotIndex;
                     }
                 }
             } else {
@@ -923,6 +927,10 @@ void BranchAndPrice::calculateSubgradient(const Label& l){
 bool BranchAndPrice::misPricingSchedule(){
     cout << "Mis-pricing sequence started!" << endl;
     cout << "Alpha = " << alpha << endl;
+    double thisAlpha=alpha;
+    if (thisAlpha>0.9){
+        thisAlpha=0.9;
+    }
     int k=2;
     double tildeAlpha;
     ListDigraph::NodeMap<double> yIIn(g);
@@ -932,7 +940,7 @@ bool BranchAndPrice::misPricingSchedule(){
     double yIInVehicle=yInVehicle;
     bool generatedValidCuttingPlane=false;
     do{
-        tildeAlpha=1-k*(1-alpha);
+        tildeAlpha=1-k*(1-thisAlpha);
         if(tildeAlpha<EPSILON){
             tildeAlpha = 0;
         }
