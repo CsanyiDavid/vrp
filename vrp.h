@@ -19,8 +19,9 @@
 #include <utility>
 #include <vector>
 
-#define PRINT true
+#define PRINT false
 #define COLUMN_PRINT false
+#define TIME_LIMIT 300
 
 #ifndef VRP_H
 #define VRP_H
@@ -118,7 +119,7 @@ private:
                             double& cost);
     void addGeneratedColumn(vector<ListDigraph::Node>& currRouteNodes,
                             double& cost);
-    void recursiveBranch(int&  branchedNodes);
+    bool recursiveBranch(int&  branchedNodes, Timer& timer);
     void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
                          vector<pair<ListDigraph::Node, int>>& changedStartCosts);
     void calculateArcUse();

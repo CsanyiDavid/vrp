@@ -289,7 +289,7 @@ void VRP::checkMIP(bool printEps, bool printSolutionArcs,
 {
     if(isInitialized) {
         Timer timer(true);
-        cout << "Check MIP started: " << endl;
+        if(PRINT) cout << "Check MIP started: " << endl;
 
         Mip mip;
         //Add cols
@@ -355,15 +355,20 @@ void VRP::checkMIP(bool printEps, bool printSolutionArcs,
                 cout << "feasible" << endl;
                 break;
             case 3:
-                cout << "optimal" << endl;
+                if(PRINT) cout << "optimal" << endl;
                 break;
             case 4:
                 cout << "unbounded" << endl;
                 break;
         }
-        cout << "CHECK MIP primal: " << mip.solValue() << endl;
-        cout << "Elapsed: " << timer.realTime() << "s" << endl;
-        cout << "User time: " << timer.userTime() << "s" << endl;
+        if(PRINT) {
+            cout << "CHECK MIP primal: " << mip.solValue() << endl;
+            cout << "Elapsed: " << timer.realTime() << "s" << endl;
+            cout << "User time: " << timer.userTime() << "s" << endl;
+        } else {
+            cout << "   " << timer.realTime() << " " << timer.userTime() << " " << mip.solValue() << endl;
+        }
+
         if(printSolutionArcs){
             for(ListDigraph::ArcIt arc(g); arc !=INVALID; ++arc){
                 if(mip.sol(checkCols[arc])>EPSILON){
@@ -434,11 +439,10 @@ void VRP::callBranchAndPrice(double smoothingParameter, bool earlyStop){
         if(smoothingParameter==-1) {
             bap.printAlphas();
         }
-        cerr << "Save done" << endl;
+        if(PRINT) cout << "Save done" << endl;
     } else {
         cerr << "Not initialized!" << endl;
     }
-    cerr << "After if" << endl;
 }
 
 void VRP::printToEps(const string& filename){
@@ -653,7 +657,7 @@ bool BranchAndPrice::solveMasterLPwithSmoothing(){
         if(smoothingParameter==-1) {
             if (itCnt == 1) {
                 alpha = 0.1;
-                cout << "AUTO SMOOTHING own" << endl;
+                if(PRINT) cout << "AUTO SMOOTHING own" << endl;
             } else if (dotproduct < 0) {
                 alpha += (1 - alpha) * 0.1;
             } else {
@@ -666,7 +670,7 @@ bool BranchAndPrice::solveMasterLPwithSmoothing(){
         } else if(smoothingParameter==-2) {
             if (itCnt == 1) {
                 alpha = 0.5;
-                cout << "AUTO SMOOTHING article" << endl;
+                if(PRINT) cout << "AUTO SMOOTHING article" << endl;
             } else if (dotproduct > 0) {
                 alpha += (1 - alpha) * 0.1;
             } else {
@@ -677,7 +681,7 @@ bool BranchAndPrice::solveMasterLPwithSmoothing(){
             }
         } else if(itCnt==1) {
             alpha=smoothingParameter;
-            cout << "CONSTANT ALPHA = " << alpha << endl;
+            if(PRINT) cout << "CONSTANT ALPHA = " << alpha << endl;
         }
         for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
             yIn[node]=ySep[node];
@@ -863,7 +867,7 @@ bool BranchAndPrice::generateColumn()
                                 addGeneratedColumn(currRouteNodes, c_i);
                                 return true;
                             } else {
-                                cout << "Early mis-pricing" << endl;
+                                if(PRINT) cout << "Early mis-pricing" << endl;
                                 return false;
                             }
                         } else {
@@ -909,7 +913,7 @@ bool BranchAndPrice::generateColumn()
         addGeneratedColumn(currRouteNodes, c_i);
         return true;
     } else {
-        cout << "Late mis-pricing" << endl;
+        if(PRINT) cout << "Late mis-pricing" << endl;
         return false;
     }
 }
@@ -925,8 +929,8 @@ void BranchAndPrice::calculateSubgradient(const Label& l){
 }
 
 bool BranchAndPrice::misPricingSchedule(){
-    cout << "Mis-pricing sequence started!" << endl;
-    cout << "Alpha = " << alpha << endl;
+    if(PRINT)   cout << "Mis-pricing sequence started!" << endl;
+    if(PRINT)   cout << "Alpha = " << alpha << endl;
     double thisAlpha=alpha;
     if (thisAlpha>0.9){
         thisAlpha=0.9;
@@ -944,7 +948,7 @@ bool BranchAndPrice::misPricingSchedule(){
         if(tildeAlpha<EPSILON){
             tildeAlpha = 0;
         }
-        cout << "TildeAlpha: " << tildeAlpha << endl;
+        if(PRINT) cout << "TildeAlpha: " << tildeAlpha << endl;
         for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
             ySep[node]=tildeAlpha*yIIn[node]+(1-tildeAlpha)*masterLP.dual(nodeRows[node]);
         }
@@ -1041,21 +1045,25 @@ void BranchAndPrice::branchAndBound()
     if (PRINT) cout << "Branch and bound started: " << endl;
     int branchedNodes = 0;
     createMasterLP();
-    recursiveBranch(branchedNodes);
+    bool endedInTime = recursiveBranch(branchedNodes, timer);
 
     if (PRINT) {
         cout << endl;
         cout << "Finished" << endl;
-        //printBranchedArcs();
+
+        cout << "Ended in time: " << endedInTime << endl;
+        cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
+        cout << "Elapsed user time: " << timer.userTime() << "s" << endl;
+        cout << "Solution: " << bestCost << endl;
+        cout << "Vehicle count: " << bestSolutionVehicle << endl;
+        cout << "Number of added cols: " << cols.size() << endl;
+        cout << "Visited branching nodes: " << branchedNodes << endl;
+    } else {
+        cout << endedInTime << " " << timer.realTime() << " " << timer.userTime() << " " << bestCost << endl;
     }
     //cout << n - 1 << " " << seed << " " << maxWeight << endl;
     myAssert(countArcs(g) == n * (n - 1), "Wrong arc count at the end of branchAndBound!");
-    cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
-    cout << "Elapsed user time: " << timer.userTime() << "s" << endl;
-    cout << "Solution: " << bestCost << endl;
-    cout << "Vehicle count: " << bestSolutionVehicle << endl;
-    cout << "Number of added cols: " << cols.size() << endl;
-    cout << "Visited branching nodes: " << branchedNodes << endl;
+
 }
 
 bool isWhole(double x){
@@ -1066,16 +1074,18 @@ bool isWhole(double x){
     }
 }
 
-void BranchAndPrice::recursiveBranch(int& branchedNodes)
+bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
 {
+    if(timer.realTime()>TIME_LIMIT) return false;
     ++branchedNodes;
     if(PRINT) cout << "New branching node: " << branchedNodes << endl;
     if(!solveMasterLPwithSmoothing()){
-        return;
+        return true;
     } else if(masterLP.primal()>bestCost) {
         if(PRINT) cout << "BOUND" << endl;
-        return;
+        return true;
     }
+
 
     double vehicleNumber=masterLP.primal(vehicleNumberCol);
     Lp::Row tempRow=INVALID;
@@ -1083,13 +1093,13 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
         //branch on vehicle number
         tempRow=masterLP.addRow(vehicleNumberCol<=floor(vehicleNumber));
         if(PRINT) cout << "Add: vehicleNumberCol <= " << floor(vehicleNumber) << endl;
-        recursiveBranch(branchedNodes);
+        recursiveBranch(branchedNodes, timer);
         if(PRINT) cout << "Remove vehicleNumberCol <= " << floor(vehicleNumber) << endl;
         masterLP.erase(tempRow);
 
         tempRow=masterLP.addRow(vehicleNumberCol>=ceil(vehicleNumber));
         if(PRINT) cout << "Add: vehicleNumberCol >= " << ceil(vehicleNumber) << endl;
-        recursiveBranch(branchedNodes);
+        recursiveBranch(branchedNodes, timer);
         if(PRINT) cout << "Remove: vehicleNumberCol >= " << ceil(vehicleNumber) << endl;
         masterLP.erase(tempRow);
     } else {
@@ -1142,7 +1152,7 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
             }
         }
 */
-        cout  << endl;
+        if(PRINT) cout  << endl;
         if(arcToBranch==INVALID){
             cout.precision(12);
             if(PRINT) cout << "WHOLE solution found with cost: ";
@@ -1244,7 +1254,7 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
                     }
                 }
             }
-            recursiveBranch(branchedNodes);
+            recursiveBranch(branchedNodes, timer);
             for(unsigned int i=0; i<changedCosts.size(); ++i){
                 masterLP.objCoeff(cols[changedCosts[i].first], changedCosts[i].second);
             }
@@ -1267,7 +1277,7 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
             changeObjCoeffs(arcToBranch, changedCosts, changedStartCosts);
             arcs[g.id(g.source(arcToBranch))][g.id(g.target(arcToBranch))]=INVALID;
             g.erase(arcToBranch);
-            recursiveBranch(branchedNodes);
+            recursiveBranch(branchedNodes, timer);
             //Set the original costs
             for(unsigned int i=0; i<changedCosts.size(); ++i){
                 masterLP.objCoeff(cols[changedCosts[i].first], changedCosts[i].second);
@@ -1284,6 +1294,7 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
             if(PRINT) cout << "Remove: arc =1" << endl;
         }
     }
+    return timer.realTime()<5;
 }
 
 void BranchAndPrice::changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
@@ -1352,7 +1363,7 @@ void BranchAndPrice::saveSolution(vector<vector<ListDigraph::Node>> &solution,
                                   int &solutionCost)
 {
     if(bestCost<BIG_VALUE-1){
-        cout << "Save solution!" << endl;
+        if(PRINT) cout << "Save solution!" << endl;
         solutionCost=bestCost;
         solution.resize(0);
         for(unsigned int i=0; i<bestSolutionColIndexs.size(); ++i){
@@ -1369,10 +1380,12 @@ void BranchAndPrice::saveSolution(vector<vector<ListDigraph::Node>> &solution,
                 solution.push_back(temp);
             }
         }
-        cout << "Solution size: " << solution.size() << endl;
-        cout << "Solution cost: " << solutionCost << endl << endl;
+        if(PRINT) {
+            cout << "Solution size: " << solution.size() << endl;
+            cout << "Solution cost: " << solutionCost << endl << endl;
+        }
     } else {
-        cerr << "The solution is empty!" << endl;
+        if(PRINT) cerr << "The solution is empty!" << endl;
     }
 }
 

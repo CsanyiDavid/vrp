@@ -39,7 +39,7 @@ bool readInitData(int &costumerCnt, int &seed, int &maxWeight){
     return true;
 }
 
-int main(){
+int main2(){
     int costumerCnt;
     int seed;
     int maxWeight;
@@ -165,6 +165,25 @@ int main(){
         } else {
             cout << "unkown command" << endl;
         };
+    }
+    return 0;
+}
+
+///Test more inputs from file
+int main(){
+
+    //print
+    int costumerCnt;
+    int seed;
+    int maxWeight;
+    double smoothingParameter;
+    bool earlyStop;
+    VRP vrp("hun-sc-ncn.lgf");
+    while(cin >> costumerCnt >> seed >> maxWeight >> smoothingParameter >> earlyStop){
+        cout << costumerCnt << " " << seed << " " << maxWeight << " ";
+        vrp.init(costumerCnt, seed, maxWeight);
+        vrp.callBranchAndPrice(smoothingParameter, earlyStop);
+        vrp.checkMIP();
     }
     return 0;
 }
