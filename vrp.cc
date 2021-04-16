@@ -636,6 +636,10 @@ bool BranchAndPrice::solveMasterLPwithSmoothing(){
                 cout << "unbounded" << endl;
                 return false;
         }
+        if(timer.realTime()>TIME_LIMIT){
+            return false;
+        }
+
         for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
             ySep[node]=masterLP.dual(nodeRows[node])*(1-alpha)+yIn[node]*alpha;
         }
