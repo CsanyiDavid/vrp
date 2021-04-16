@@ -1298,7 +1298,7 @@ bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
             if(PRINT) cout << "Remove: arc =1" << endl;
         }
     }
-    return timer.realTime()<5;
+    return timer.realTime()<TIME_LIMIT;
 }
 
 void BranchAndPrice::changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
