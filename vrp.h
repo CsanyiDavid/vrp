@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-#define PRINT false
+#define PRINT true
 #define COLUMN_PRINT false
 #define TIME_LIMIT 300
 
@@ -32,7 +32,7 @@
 using namespace std;
 using namespace lemon;
 
-void myAssert(bool bo, const string& errorType);
+void myAssert(bool condition, const string& errorType);
 
 ///Creates plane coordinates from longitude and latitude
 class CoordMap{
@@ -42,8 +42,9 @@ public:
     typedef ListDigraph::Node Key;
     typedef dim2::Point<double> Value;
 
-    CoordMap(ListDigraph::NodeMap<double>& _lon,
-             ListDigraph::NodeMap<double>& _lat);
+    CoordMap(ListDigraph::NodeMap<double>& in_lon,
+             ListDigraph::NodeMap<double>& in_lat)
+            : lon(in_lon), lat(in_lat){}
 
     Value operator[](const Key& node) const;
 };
@@ -59,7 +60,7 @@ class BranchAndPrice{
 private:
     bool createdMasterLP=false;
 
-    //The problem
+    //Init data
     ListDigraph& g;
     const int& n;     //costumer+depo count
     const int& Q;     //vehicle capacity
@@ -67,18 +68,18 @@ private:
     ListDigraph::ArcMap<int>& c;     //travel distance (meters)
     ListDigraph::NodeMap<int>& q;   //costumer demands
     bool earlyStop;
+    double smoothingParameter;
 
     // The Master Problem
     Lp masterLP;
     vector<Lp::Col> cols;
-    vector<vector<ListDigraph::Node>> routeNodes;   //added column/route nodes
+    vector<vector<ListDigraph::Node>> routeNodes;   //The nodes of the added columns/routes
     ListDigraph::NodeMap<Lp::Col> startCols;
     ListDigraph::NodeMap<Lp::Row> nodeRows;
     Lp::Col vehicleNumberCol;
     Lp::Row vehicleNumberRow;
 
     //Smoothing
-    double smoothingParameter;
     ListDigraph::NodeMap<double> ySep;
     ListDigraph::NodeMap<double> yIn;
     ListDigraph::NodeMap<double> subgradient;
@@ -88,8 +89,9 @@ private:
     double alpha;
     vector<double> alphas;
 
-    //Best solution
     ListDigraph::ArcMap<double> arcUse;
+
+    //Best solution
     double bestCost=BIG_VALUE;
     int bestSolutionVehicle;
     vector<int> bestSolutionColIndexs;
@@ -123,6 +125,8 @@ private:
     void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
                          vector<pair<ListDigraph::Node, int>>& changedStartCosts);
     void calculateArcUse();
+    void findArcToBranch(ListDigraph::Arc& arcToBranch);
+    void dealWithFoundWholeSolution();
 };
 
 /// Manages and stores the VRP: reads map, finds shortest paths, calls solvers, prints solution
@@ -143,7 +147,7 @@ private:
     int mapNodesNumber;
     int mapArcsNumber;
     CoordMap coords;
-    vector<int> depotAndCostumers;  //Which map nodes are costumers or depo
+    vector<int> depotAndCostumers;  //Which map nodes are the costumers or the depo
 
     //The graph
     ListDigraph g;

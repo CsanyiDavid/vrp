@@ -7,20 +7,16 @@
 using namespace std;
 using namespace lemon;
 
-///Prints errorType and aborts program running if bo is false
-void myAssert(bool bo, const string& errorType)
+///Prints errorType and aborts program running if condition is false
+void myAssert(bool condition, const string& errorType)
 {
-    if(!bo) {
+    if(!condition) {
         cout << "Assertion error: " << errorType << endl;
         exit(-1);
     }
 }
 
-CoordMap::CoordMap(ListDigraph::NodeMap<double>& _lon,
-    ListDigraph::NodeMap<double>& _lat) : lon(_lon), lat(_lat)
-{
-}
-
+//////Calculates the plane coordinates of a node (x,y) from longitude and latitude
 CoordMap::Value CoordMap::operator[](const Key& node) const {
     const double Phi = (lat[node] /* + 0.9430/60 */) / 180 * lemon::PI;
     const double Lam = (lon[node] /* + 4.0495/60 */) / 180 * lemon::PI;
@@ -76,7 +72,7 @@ VRP::VRP(const string& inputName)   :
 {
     Timer timer(true);
     if (PRINT) cout << "Reading the map... " << flush;
-    digraphReader(map, string(inputName))
+    digraphReader(map, inputName)
             .arcMap("maxspeed", maxspeed)
             .arcMap("length", length)
             .nodeMap("lat", lat)
@@ -91,7 +87,7 @@ VRP::VRP(const string& inputName)   :
 
 ///Initializes the problem: sets init data, generates costumer graph, finds shortest paths
 void VRP::init(int initCostumerCnt, int initSeed, int initMaxWeight,
-               int initVehicleCapacity)
+               int initVehicleCapacity) //default value: 100, set in vrp.h
 {
     if(0<initCostumerCnt
         && 0<initMaxWeight && initMaxWeight<=initVehicleCapacity
@@ -108,7 +104,6 @@ void VRP::init(int initCostumerCnt, int initSeed, int initMaxWeight,
         nodes.resize(0);
         arcs.resize(0);
         paths.resize(0);
-
 
         generateCostumersGraph();
         if (PRINT) printCostumerCoordinates();
@@ -168,7 +163,7 @@ void VRP::generateCostumersGraph()
     if(PRINT) cout << "Elapsed: " << timer.realTime() << "s" << endl << endl;
 }
 
-///An arcmap class, calculates the travel time (min)
+///An arcmap class, calculates the travel time (minutes)
 class ArcTravelTime{
 private:
     const ListDigraph::ArcMap<int>& maxspeed;
@@ -285,7 +280,7 @@ ListDigraph::Node VRP::nodeFromLatLon(double latitude, double longitude)
 
 ///Solves the VRP with the CPLEX MIP, extra conditions on arcs can be added
 void VRP::checkMIP(bool printEps, bool printSolutionArcs,
-                   vector<tuple<int, int, int>> conditions)
+                   vector<tuple<int, int, int>> conditions) //default values: false, false, empty tuple
 {
     if(isInitialized) {
         Timer timer(true);
@@ -340,6 +335,8 @@ void VRP::checkMIP(bool printEps, bool printSolutionArcs,
             int value=get<2>(conditions[i]);
             if(0<=sId && sId<n && 0<=tId && tId<=n && sId!=tId && (value==1 || value==0)) {
                 mip.addRow(checkCols[arcs[sId][tId]] == value);
+            } else {
+                cerr << "Invalid plus condition!" << endl;
             }
         }
         mip.min();
@@ -363,8 +360,8 @@ void VRP::checkMIP(bool printEps, bool printSolutionArcs,
         }
         if(PRINT) {
             cout << "CHECK MIP primal: " << mip.solValue() << endl;
-            cout << "Elapsed: " << timer.realTime() << "s" << endl;
-            cout << "User time: " << timer.userTime() << "s" << endl;
+            cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
+            cout << "Elapsed user time: " << timer.userTime() << "s" << endl;
         } else {
             cout << "   " << timer.realTime() << " " << timer.userTime() << " " << mip.solValue() << endl;
         }
@@ -387,11 +384,12 @@ void VRP::checkMIP(bool printEps, bool printSolutionArcs,
     }
 }
 
+///Prints the solution of the check MIP to an eps file
 void VRP::printToEpsCheckMIP(const string& filename, const Mip& mip,
                              const ListDigraph::ArcMap<Mip::Col>& checkCols)
 {
     Timer timer(true);
-    cout << "Printing to eps..." << flush;
+    cout << "Printing to eps checkMIP..." << flush;
     ListDigraph::ArcMap<Color> arcColor(map, Color(0, 0, 0));
     ListDigraph::ArcMap<double> arcWidth(map, 0.0);
     for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
@@ -436,23 +434,24 @@ void VRP::callBranchAndPrice(double smoothingParameter, bool earlyStop){
         BranchAndPrice bap(g, n, Q, arcs, c, q, smoothingParameter, earlyStop);
         bap.branchAndBound();
         bap.saveSolution(solution, solutionCost);
-        if(smoothingParameter==-1) {
+        if(smoothingParameter==-1 and PRINT) {
             bap.printAlphas();
         }
         if(PRINT) cout << "Save done" << endl;
     } else {
         cerr << "Not initialized!" << endl;
     }
+    if(PRINT) cout << "End of callBranchAndPrice" << endl;
 }
 
+///Prints the b&p solution to an eps file
 void VRP::printToEps(const string& filename){
     if(isInitialized) {
         Timer timer(true);
         cout << "Printing to eps..." << flush;
         ListDigraph::ArcMap<Color> arcColor(map, Color(
-                200, 200, 200));
-        ListDigraph::ArcMap<double> arcWidth(map,
-                                             0.030);
+                170, 255, 0));
+        ListDigraph::ArcMap<double> arcWidth(map,0.035);
         for (unsigned int i = 0; i < solution.size(); ++i) {
             for (unsigned int j = 1; j < solution[i].size(); ++j) {
                 int sId = g.id(solution[i][j - 1]);
@@ -491,6 +490,7 @@ void VRP::printToEps(const string& filename){
     }
 }
 
+///Prints the solution cost and the nodes of the solution vehicle routes
 void VRP::printSolution()
 {
     if(solutionCost<BIG_VALUE-1){
@@ -506,6 +506,7 @@ void VRP::printSolution()
     }
 }
 
+///Initializes data
 BranchAndPrice::BranchAndPrice(
         ListDigraph& in_g,
         const int& in_n,
@@ -523,9 +524,9 @@ BranchAndPrice::BranchAndPrice(
           c{in_c},
           q{in_q},
           earlyStop(in_earlyStop),
+          smoothingParameter{in_smoothingParameter},
           startCols{g},
           nodeRows{g},
-          smoothingParameter{in_smoothingParameter},
           ySep{g},
           yIn{g},
           subgradient{g},
@@ -534,6 +535,7 @@ BranchAndPrice::BranchAndPrice(
 {
 }
 
+///Creates master LP
 void BranchAndPrice::createMasterLP()
 {
     createdMasterLP = true;
@@ -547,7 +549,6 @@ void BranchAndPrice::createMasterLP()
             startCols[node] = masterLP.addCol();
             masterLP.colLowerBound(startCols[node], 0);
             masterLP.colUpperBound(startCols[node], 1);
-            //Calculate startCol costs
             masterLP.objCoeff(
                     startCols[node],
                     c[arcs[0][g.id(node)]] + c[arcs[g.id(node)][0]]);
@@ -965,7 +966,7 @@ bool BranchAndPrice::misPricingSchedule(){
     return generatedValidCuttingPlane;
 }
 
-///Calculates route nodes in order and route cost from a label
+    ///Calculates route nodes in order and route cost from a label
 void BranchAndPrice::getRouteFromLabel(const Label&l,
                                         vector<ListDigraph::Node>& currRouteNodes,
                                         double& cost){
@@ -985,7 +986,7 @@ void BranchAndPrice::getRouteFromLabel(const Label&l,
     }
 }
 
-///Adds a new column to the master problem from routeNodes vector and route cost
+    ///Adds a new column to the master problem from routeNodes vector and route cost
 void BranchAndPrice::addGeneratedColumn(vector<ListDigraph::Node>& currRouteNodes,
                                         double& cost)
 {
@@ -1006,6 +1007,7 @@ void BranchAndPrice::addGeneratedColumn(vector<ListDigraph::Node>& currRouteNode
     masterLP.objCoeff(col, cost);
 }
 
+///Prints the found vehicle routes and their costs
 void BranchAndPrice::printMasterLPSolution()
 {
     cout << "Master LP solution:" << endl;
@@ -1042,6 +1044,7 @@ void BranchAndPrice::printMasterLPSolution()
     cout << endl;
 }
 
+///Calls createMasterLP and recursiveBranch
 void BranchAndPrice::branchAndBound()
 {
     Timer timer(true);
@@ -1054,7 +1057,6 @@ void BranchAndPrice::branchAndBound()
     if (PRINT) {
         cout << endl;
         cout << "Finished" << endl;
-
         cout << "Ended in time: " << endedInTime << endl;
         cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
         cout << "Elapsed user time: " << timer.userTime() << "s" << endl;
@@ -1065,19 +1067,15 @@ void BranchAndPrice::branchAndBound()
     } else {
         cout << endedInTime << " " << timer.realTime() << " " << timer.userTime() << " " << bestCost << endl;
     }
-    //cout << n - 1 << " " << seed << " " << maxWeight << endl;
     myAssert(countArcs(g) == n * (n - 1), "Wrong arc count at the end of branchAndBound!");
-
 }
 
+///Determines if a double is a whole number with epsilon error
 bool isWhole(double x){
-    if(x-floor(x)<EPSILON || ceil(x)-x<EPSILON){
-        return true;
-    } else {
-        return false;
-    }
+    return (x-floor(x)<EPSILON || ceil(x)-x<EPSILON);
 }
 
+///Does the branching in one node of the branch tree (returns true if TIME_LIMIT not ecxeeded)
 bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
 {
     if(timer.realTime()>TIME_LIMIT) return false;
@@ -1089,7 +1087,6 @@ bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
         if(PRINT) cout << "BOUND" << endl;
         return true;
     }
-
 
     double vehicleNumber=masterLP.primal(vehicleNumberCol);
     Lp::Row tempRow=INVALID;
@@ -1108,119 +1105,18 @@ bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
         masterLP.erase(tempRow);
     } else {
         //branch on arcs
-        calculateArcUse();
-        double maxFractionalUse=0.0;
         ListDigraph::Arc arcToBranch=INVALID;
-        for(int i=0; i<n; ++i){
-            for(int j=0; j<n; ++j) {
-                if (i != j && arcs[i][j] != INVALID) {
-                    ListDigraph::Arc arc;
-                    arc = arcs[i][j];
-                    if (!isWhole(arcUse[arc])) {
-                        if (COLUMN_PRINT) {
-                            cout << g.id(g.source(arc)) << " " << g.id(g.target(arc)) << " " << arcUse[arc] << "  "
-                                 << endl;
-                        } else if (PRINT) {
-                            cout << arcUse[arc] << "  ";
-                        }
-                        if (arcUse[arc] > maxFractionalUse + EPSILON && arcUse[arc] < 1) {
-                            maxFractionalUse = arcUse[arc];
-                            arcToBranch = arc;
-                        }
-                    }
-                }
-            }
-        }
-/*
-        for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
-            if(!isWhole(arcUse[arc])){
-                if(COLUMN_PRINT){
-                    cout << g.id(g.source(arc)) << " " << g.id(g.target(arc)) << " " << arcUse[arc] << "  " << endl;
-                } else {
-                    cout << arcUse[arc] << "  ";
-                }
-                if(arcUse[arc]>maxFractionalUse+EPSILON && arcUse[arc]<1){
-                    maxFractionalUse=arcUse[arc];
-                    arcToBranch=arc;
-                }
-                //If arcUse is the same
-                //Choose according to alphabetical order to avoid random branching arc
-                if(abs(arcUse[arc]-maxFractionalUse)<EPSILON){
-                    if(g.id(g.source(arcToBranch))>g.id(g.source(arc))){
-                        arcToBranch=arc;
-                    } else if(g.id(g.source(arcToBranch))==g.id(g.source(arc))
-                        && g.id(g.target(arcToBranch))>g.id(g.target(arc))){
-                        arcToBranch=arc;
-                    }
-                }
-            }
-        }
-*/
-        if(PRINT) cout  << endl;
+        findArcToBranch(arcToBranch);
         if(arcToBranch==INVALID){
-            cout.precision(12);
-            if(PRINT) cout << "WHOLE solution found with cost: ";
-            if(PRINT) cout << masterLP.primal();
-
-            if(masterLP.primal()<bestCost){
-                //This solution is better than the current best
-                //Save solution
-                if(PRINT) cout << " Better" << endl;
-                bestCost=masterLP.primal();
-                bestSolutionVehicle=masterLP.primal(vehicleNumberCol);
-                bestSolutionColIndexs.resize(0);
-                for(unsigned int i=0; i<cols.size(); ++i){
-                    if(masterLP.primal(cols[i])>EPSILON) {
-                        if(PRINT) {
-                            cout << i << " .col,";
-                            cout << " value: ";
-                            cout << masterLP.primal(cols[i]) << endl;
-                            cout << "Route: ";
-                            //printRoutes(i);
-                            cout << "Route cost: " << masterLP.objCoeff(cols[i]) << endl;
-                            cout << endl;
-                        }
-                    }
-                }
-                for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
-                    if(g.id(node)!=0)// &&
-                        //masterLP.primal(startCols[node])>EPSILON)
-                    {
-                        if(PRINT) {
-                            cout << g.id(node) << " . node col,";
-                            cout << " value: ";
-                            cout << masterLP.primal(startCols[node]) << endl;
-                            cout << "Route cost: ";
-                            cout << masterLP.objCoeff(startCols[node]) << endl;
-                            cout << endl;
-                        }
-                    }
-                }
-                //printRoutes(-1);
-                for(unsigned int i=0; i<cols.size(); ++i){
-                    if(masterLP.primal(cols[i])>EPSILON){
-                        myAssert(masterLP.primal(cols[i])<1.0+EPSILON, ">1+eps col");
-                        myAssert(masterLP.primal(cols[i])>1.0-EPSILON, "<1-eps nonzero col");
-                        bestSolutionColIndexs.push_back(i);
-                    }
-                }
-                for(ListDigraph::NodeIt node(g); node!=INVALID; ++node){
-                    myAssert(masterLP.primal(startCols[node])<1.0+EPSILON, ">1+eps col");
-                    myAssert(masterLP.primal(startCols[node])>1.0-EPSILON
-                        || masterLP.primal(startCols[node])<EPSILON, "<1-eps nonzero col");
-                    bestSolutionStartCols[node]=masterLP.primal(startCols[node]);
-                }
-            } else {
-                if(PRINT) cout << " Worse" << endl;
-            }
+            dealWithFoundWholeSolution();
         } else {
             //Branch on this arc
-            if(PRINT) cout << "Branch on arc with use: ";
-            if(PRINT) cout << arcUse[arcToBranch] << endl;
-            //branchedArcs.push_back(arcToBranch);
-            if(PRINT) cout << "Source: " << g.id(g.source(arcToBranch));
-            if(PRINT) cout << ", target: " << g.id(g.target(arcToBranch)) << endl;
-
+            if(PRINT){
+                cout << "Branch on arc with use: ";
+                cout << arcUse[arcToBranch] << endl;
+                cout << "Source: " << g.id(g.source(arcToBranch));
+                cout << ", target: " << g.id(g.target(arcToBranch)) << endl;
+            }
             int originalArcCount=countArcs(g); //save original arc count
             ListDigraph::Node sourceNode=g.source(arcToBranch);
             ListDigraph::Node targetNode=g.target(arcToBranch);
@@ -1272,6 +1168,8 @@ bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
                         =g.addArc(sNode, tNode);
                 c[arcs[g.id(sNode)][g.id(tNode)]]=std::get<2>(erasedArcs[i]);
             }
+            myAssert(countArcs(g)==originalArcCount, "Arc(s) vanished!");
+            if(PRINT) cout << "Remove: arc =1" << endl;
 
             //0
             if(PRINT) cout << "Add: arc =0" << endl;
@@ -1293,14 +1191,12 @@ bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
             c[arcs[g.id(sourceNode)][g.id(targetNode)]]=originalArcCost;
             myAssert(countArcs(g)==originalArcCount, "Arc(s) vanished!");
             if(PRINT) cout << "Remove: arc =0" << endl;
-
-            myAssert(countArcs(g)==originalArcCount, "Arc(s) vanished!");
-            if(PRINT) cout << "Remove: arc =1" << endl;
         }
     }
     return timer.realTime()<TIME_LIMIT;
 }
 
+///If a column contains arc, than changes its objective coefficient to big value
 void BranchAndPrice::changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
     vector<pair<ListDigraph::Node, int>>& changedStartCosts)
 {
@@ -1341,6 +1237,7 @@ void BranchAndPrice::changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>
     }
 }
 
+///Calculates the total use of every arc (sum of the variables for every route which contains the arc)
 void BranchAndPrice::calculateArcUse(){
     double usage;
     for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
@@ -1363,6 +1260,110 @@ void BranchAndPrice::calculateArcUse(){
     }
 }
 
+///Finds an arc to branch (with max arcUse <=1)
+void BranchAndPrice::findArcToBranch(ListDigraph::Arc& arcToBranch){
+    calculateArcUse();
+    double maxFractionalUse=0.0;
+    for(int i=0; i<n; ++i){
+        for(int j=0; j<n; ++j) {
+            if (i != j && arcs[i][j] != INVALID) {
+                ListDigraph::Arc arc;
+                arc = arcs[i][j];
+                if (!isWhole(arcUse[arc])) {
+                    if (COLUMN_PRINT) {
+                        cout << g.id(g.source(arc)) << " " << g.id(g.target(arc)) << " " << arcUse[arc] << "  "
+                             << endl;
+                    } else if (PRINT) {
+                        cout << arcUse[arc] << "  ";
+                    }
+                    if (arcUse[arc] > maxFractionalUse + EPSILON && arcUse[arc] < 1) {
+                        maxFractionalUse = arcUse[arc];
+                        arcToBranch = arc;
+                    }
+                }
+            }
+        }
+    }
+    if(PRINT) cout  << endl;
+    /*
+        for(ListDigraph::ArcIt arc(g); arc!=INVALID; ++arc){
+            if(!isWhole(arcUse[arc])){
+                if(COLUMN_PRINT){
+                    cout << g.id(g.source(arc)) << " " << g.id(g.target(arc)) << " " << arcUse[arc] << "  " << endl;
+                } else {
+                    cout << arcUse[arc] << "  ";
+                }
+                if(arcUse[arc]>maxFractionalUse+EPSILON && arcUse[arc]<1){
+                    maxFractionalUse=arcUse[arc];
+                    arcToBranch=arc;
+                }
+                //If arcUse is the same
+                //Choose according to alphabetical order to avoid random branching arc
+                if(abs(arcUse[arc]-maxFractionalUse)<EPSILON){
+                    if(g.id(g.source(arcToBranch))>g.id(g.source(arc))){
+                        arcToBranch=arc;
+                    } else if(g.id(g.source(arcToBranch))==g.id(g.source(arc))
+                        && g.id(g.target(arcToBranch))>g.id(g.target(arc))){
+                        arcToBranch=arc;
+                    }
+                }
+            }
+        }
+*/
+}
+
+///Saves the solution if it's better then the current best solution
+void BranchAndPrice::dealWithFoundWholeSolution() {
+    cout.precision(12);
+    if (PRINT) cout << "WHOLE solution found with cost: ";
+    if (PRINT) cout << masterLP.primal();
+    if (masterLP.primal() < bestCost) {
+        //This solution is better than the current best
+        //Save solution
+        if (PRINT) cout << " Better" << endl;
+        bestCost = masterLP.primal();
+        bestSolutionVehicle = masterLP.primal(vehicleNumberCol);
+        bestSolutionColIndexs.resize(0);
+        for (unsigned int i = 0; i < cols.size(); ++i) {
+            if (masterLP.primal(cols[i]) > EPSILON) {
+                if (PRINT) {
+                    cout << i << " .col,";
+                    cout << " value: ";
+                    cout << masterLP.primal(cols[i]) << endl;
+                    cout << "Route cost: " << masterLP.objCoeff(cols[i]) << endl;
+                    cout << endl;
+                }
+            }
+        }
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            if (g.id(node) != 0 && PRINT) {
+                cout << g.id(node) << " . node col,";
+                cout << " value: ";
+                cout << masterLP.primal(startCols[node]) << endl;
+                cout << "Route cost: ";
+                cout << masterLP.objCoeff(startCols[node]) << endl;
+                cout << endl;
+            }
+        }
+        for (unsigned int i = 0; i < cols.size(); ++i) {
+            if (masterLP.primal(cols[i]) > EPSILON) {
+                myAssert(masterLP.primal(cols[i]) < 1.0 + EPSILON, ">1+eps col");
+                myAssert(masterLP.primal(cols[i]) > 1.0 - EPSILON, "<1-eps nonzero col");
+                bestSolutionColIndexs.push_back(i);
+            }
+        }
+        for (ListDigraph::NodeIt node(g); node != INVALID; ++node) {
+            myAssert(masterLP.primal(startCols[node]) < 1.0 + EPSILON, ">1+eps col");
+            myAssert(masterLP.primal(startCols[node]) > 1.0 - EPSILON
+                     || masterLP.primal(startCols[node]) < EPSILON, "<1-eps nonzero col");
+            bestSolutionStartCols[node] = masterLP.primal(startCols[node]);
+        }
+    } else {
+        if (PRINT) cout << " Worse" << endl;
+    }
+}
+
+///Saves the found solution and vehicle routes' nodes
 void BranchAndPrice::saveSolution(vector<vector<ListDigraph::Node>> &solution,
                                   int &solutionCost)
 {
@@ -1393,8 +1394,9 @@ void BranchAndPrice::saveSolution(vector<vector<ListDigraph::Node>> &solution,
     }
 }
 
+///Prints the used alpha smoothing parameters
 void BranchAndPrice::printAlphas(){
-    cout << "ALPHAAS:" << endl;
+    cout << "ALPHAS:" << endl;
     for(unsigned int i=0; i<alphas.size(); ++i){
         cout << alphas[i] << "  ";
     }
