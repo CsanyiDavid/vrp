@@ -531,6 +531,7 @@ BranchAndPrice::BranchAndPrice(
           yIn{g},
           subgradient{g},
           arcUse{g},
+          classTimer{true},
           bestSolutionStartCols{g}
 {
 }
@@ -615,8 +616,8 @@ bool BranchAndPrice::solveMasterLPwithSmoothing(){
     bool continueIteration=true;
     do {
         ++itCnt;
-        if (cols.size() % 1000 == 0 && cols.size() > 0) {
-            if (PRINT) cout << "Added cols number: " << cols.size() << endl;
+        if (cols.size() % 1000 == 0 && cols.size() > 0 && PRINT) {
+            cout << "Added cols number: " << cols.size() << endl;
         }
         masterLP.solve();
         if(COLUMN_PRINT) printMasterLPSolution();
@@ -637,7 +638,7 @@ bool BranchAndPrice::solveMasterLPwithSmoothing(){
                 cout << "unbounded" << endl;
                 return false;
         }
-        if(timer.realTime()>TIME_LIMIT){
+        if(classTimer.realTime()>TIME_LIMIT){
             return false;
         }
 
@@ -662,7 +663,7 @@ bool BranchAndPrice::solveMasterLPwithSmoothing(){
         if(smoothingParameter==-1) {
             if (itCnt == 1) {
                 alpha = 0.1;
-                if(PRINT) cout << "AUTO SMOOTHING own" << endl;
+                if(PRINT) cout << "AUTO SMOOTHING" << endl;
             } else if (dotproduct < 0) {
                 alpha += (1 - alpha) * 0.1;
             } else {
@@ -672,18 +673,6 @@ bool BranchAndPrice::solveMasterLPwithSmoothing(){
                 }
             }
             alphas.push_back(alpha);
-        } else if(smoothingParameter==-2) {
-            if (itCnt == 1) {
-                alpha = 0.5;
-                if(PRINT) cout << "AUTO SMOOTHING article" << endl;
-            } else if (dotproduct > 0) {
-                alpha += (1 - alpha) * 0.1;
-            } else {
-                alpha = alpha - 0.1;
-                if (alpha < EPSILON) {
-                    alpha = 0;
-                }
-            }
         } else if(itCnt==1) {
             alpha=smoothingParameter;
             if(PRINT) cout << "CONSTANT ALPHA = " << alpha << endl;
@@ -966,7 +955,7 @@ bool BranchAndPrice::misPricingSchedule(){
     return generatedValidCuttingPlane;
 }
 
-    ///Calculates route nodes in order and route cost from a label
+///Calculates route nodes in order and route cost from a label
 void BranchAndPrice::getRouteFromLabel(const Label&l,
                                         vector<ListDigraph::Node>& currRouteNodes,
                                         double& cost){
@@ -979,14 +968,12 @@ void BranchAndPrice::getRouteFromLabel(const Label&l,
         }
     }
     cost=0;
-    for(int i=0; i<nodeCount; ++i){
-        if(i>0){
-            cost+=c[arcs[g.id(currRouteNodes[i-1])][g.id(currRouteNodes[i])]];
-        }
+    for(int i=1; i<nodeCount; ++i){
+        cost+=c[arcs[g.id(currRouteNodes[i-1])][g.id(currRouteNodes[i])]];
     }
 }
 
-    ///Adds a new column to the master problem from routeNodes vector and route cost
+///Adds a new column to the master problem from routeNodes vector and route cost
 void BranchAndPrice::addGeneratedColumn(vector<ListDigraph::Node>& currRouteNodes,
                                         double& cost)
 {
@@ -1047,25 +1034,27 @@ void BranchAndPrice::printMasterLPSolution()
 ///Calls createMasterLP and recursiveBranch
 void BranchAndPrice::branchAndBound()
 {
-    Timer timer(true);
+    classTimer.restart();
     bestCost = BIG_VALUE;
     if (PRINT) cout << "Branch and bound started: " << endl;
     int branchedNodes = 0;
     createMasterLP();
-    bool endedInTime = recursiveBranch(branchedNodes, timer);
+    recursiveBranch(branchedNodes);
+    bool endedInTime=(classTimer.realTime()<=TIME_LIMIT);
+    classTimer.stop();
 
     if (PRINT) {
         cout << endl;
         cout << "Finished" << endl;
         cout << "Ended in time: " << endedInTime << endl;
-        cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
-        cout << "Elapsed user time: " << timer.userTime() << "s" << endl;
+        cout << "Elapsed real time: " << classTimer.realTime() << "s" << endl;
+        cout << "Elapsed user time: " << classTimer.userTime() << "s" << endl;
         cout << "Solution: " << bestCost << endl;
         cout << "Vehicle count: " << bestSolutionVehicle << endl;
         cout << "Number of added cols: " << cols.size() << endl;
         cout << "Visited branching nodes: " << branchedNodes << endl;
     } else {
-        cout << endedInTime << " " << timer.realTime() << " " << timer.userTime() << " " << bestCost << endl;
+        cout << endedInTime << " " << classTimer.realTime() << " " << classTimer.userTime() << " " << bestCost << endl;
     }
     myAssert(countArcs(g) == n * (n - 1), "Wrong arc count at the end of branchAndBound!");
 }
@@ -1075,17 +1064,17 @@ bool isWhole(double x){
     return (x-floor(x)<EPSILON || ceil(x)-x<EPSILON);
 }
 
-///Does the branching in one node of the branch tree (returns true if TIME_LIMIT not ecxeeded)
-bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
+///Does the branching in one node of the branch tree
+void BranchAndPrice::recursiveBranch(int& branchedNodes)
 {
-    if(timer.realTime()>TIME_LIMIT) return false;
+    if(classTimer.realTime()>TIME_LIMIT) return;
     ++branchedNodes;
     if(PRINT) cout << "New branching node: " << branchedNodes << endl;
     if(!solveMasterLPwithSmoothing()){
-        return true;
-    } else if(masterLP.primal()>bestCost) {
+        return;
+    } else if(masterLP.primal()>bestCost-5000) {
         if(PRINT) cout << "BOUND" << endl;
-        return true;
+        return;
     }
 
     double vehicleNumber=masterLP.primal(vehicleNumberCol);
@@ -1094,41 +1083,41 @@ bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
         //branch on vehicle number
         tempRow=masterLP.addRow(vehicleNumberCol<=floor(vehicleNumber));
         if(PRINT) cout << "Add: vehicleNumberCol <= " << floor(vehicleNumber) << endl;
-        recursiveBranch(branchedNodes, timer);
+        recursiveBranch(branchedNodes);
         if(PRINT) cout << "Remove vehicleNumberCol <= " << floor(vehicleNumber) << endl;
         masterLP.erase(tempRow);
 
         tempRow=masterLP.addRow(vehicleNumberCol>=ceil(vehicleNumber));
         if(PRINT) cout << "Add: vehicleNumberCol >= " << ceil(vehicleNumber) << endl;
-        recursiveBranch(branchedNodes, timer);
+        recursiveBranch(branchedNodes);
         if(PRINT) cout << "Remove: vehicleNumberCol >= " << ceil(vehicleNumber) << endl;
         masterLP.erase(tempRow);
     } else {
         //branch on arcs
-        ListDigraph::Arc arcToBranch=INVALID;
+        ListDigraph::Arc arcToBranch = INVALID;
         findArcToBranch(arcToBranch);
-        if(arcToBranch==INVALID){
+        if (arcToBranch == INVALID) {
             dealWithFoundWholeSolution();
         } else {
             //Branch on this arc
-            if(PRINT){
+            if (PRINT) {
                 cout << "Branch on arc with use: ";
                 cout << arcUse[arcToBranch] << endl;
                 cout << "Source: " << g.id(g.source(arcToBranch));
                 cout << ", target: " << g.id(g.target(arcToBranch)) << endl;
             }
-            int originalArcCount=countArcs(g); //save original arc count
-            ListDigraph::Node sourceNode=g.source(arcToBranch);
-            ListDigraph::Node targetNode=g.target(arcToBranch);
+            int originalArcCount = countArcs(g); //save original arc count
+            ListDigraph::Node sourceNode = g.source(arcToBranch);
+            ListDigraph::Node targetNode = g.target(arcToBranch);
             vector<pair<int, int>> changedCosts;    // <index, oldCost>
             vector<pair<ListDigraph::Node, int>> changedStartCosts;
 
             //arc=1
-            if(PRINT) cout << "Add: arc =1" << endl;
+            if (PRINT) cout << "Add: arc =1" << endl;
             changedCosts.resize(0);
             changedStartCosts.resize(0);
             vector<tuple<ListDigraph::Node, ListDigraph::Node, int>> erasedArcs;
-            if(sourceNode!=g.nodeFromId(0)) {
+            if (sourceNode != g.nodeFromId(0)) {
                 for (ListDigraph::OutArcIt arc(g, sourceNode); arc != INVALID;) {
                     ListDigraph::Arc a = arc;
                     ++arc;
@@ -1136,12 +1125,12 @@ bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
                         changeObjCoeffs(a, changedCosts, changedStartCosts);
                         erasedArcs.push_back(tuple<ListDigraph::Node, ListDigraph::Node, int>
                                                      (g.source(a), g.target(a), c[a]));
-                        arcs[g.id(g.source(a))][g.id(g.target(a))]=INVALID;
+                        arcs[g.id(g.source(a))][g.id(g.target(a))] = INVALID;
                         g.erase(a);
                     }
                 }
             }
-            if(targetNode!=g.nodeFromId(0)) {
+            if (targetNode != g.nodeFromId(0)) {
                 for (ListDigraph::InArcIt arc(g, targetNode); arc != INVALID;) {
                     ListDigraph::Arc a = arc;
                     ++arc;
@@ -1149,51 +1138,50 @@ bool BranchAndPrice::recursiveBranch(int& branchedNodes, Timer& timer)
                         changeObjCoeffs(a, changedCosts, changedStartCosts);
                         erasedArcs.push_back(tuple<ListDigraph::Node, ListDigraph::Node, int>
                                                      (g.source(a), g.target(a), c[a]));
-                        arcs[g.id(g.source(a))][g.id(g.target(a))]=INVALID;
+                        arcs[g.id(g.source(a))][g.id(g.target(a))] = INVALID;
                         g.erase(a);
                     }
                 }
             }
-            recursiveBranch(branchedNodes, timer);
-            for(unsigned int i=0; i<changedCosts.size(); ++i){
+            recursiveBranch(branchedNodes);
+            for (unsigned int i = 0; i < changedCosts.size(); ++i) {
                 masterLP.objCoeff(cols[changedCosts[i].first], changedCosts[i].second);
             }
-            for(unsigned int i=0; i<changedStartCosts.size(); ++i){
+            for (unsigned int i = 0; i < changedStartCosts.size(); ++i) {
                 masterLP.objCoeff(startCols[changedStartCosts[i].first], changedStartCosts[i].second);
             }
-            for(unsigned int i=0; i<erasedArcs.size(); ++i){
-                ListDigraph::Node sNode=std::get<0>(erasedArcs[i]);
-                ListDigraph::Node tNode=std::get<1>(erasedArcs[i]);
+            for (unsigned int i = 0; i < erasedArcs.size(); ++i) {
+                ListDigraph::Node sNode = std::get<0>(erasedArcs[i]);
+                ListDigraph::Node tNode = std::get<1>(erasedArcs[i]);
                 arcs[g.id(sNode)][g.id(tNode)]
-                        =g.addArc(sNode, tNode);
-                c[arcs[g.id(sNode)][g.id(tNode)]]=std::get<2>(erasedArcs[i]);
+                        = g.addArc(sNode, tNode);
+                c[arcs[g.id(sNode)][g.id(tNode)]] = std::get<2>(erasedArcs[i]);
             }
-            myAssert(countArcs(g)==originalArcCount, "Arc(s) vanished!");
-            if(PRINT) cout << "Remove: arc =1" << endl;
+            myAssert(countArcs(g) == originalArcCount, "Arc(s) vanished!");
+            if (PRINT) cout << "Remove: arc =1" << endl;
 
             //0
-            if(PRINT) cout << "Add: arc =0" << endl;
+            if (PRINT) cout << "Add: arc =0" << endl;
             changedCosts.resize(0);
             changedStartCosts.resize(0);
-            int originalArcCost=c[arcToBranch];
+            int originalArcCost = c[arcToBranch];
             changeObjCoeffs(arcToBranch, changedCosts, changedStartCosts);
-            arcs[g.id(g.source(arcToBranch))][g.id(g.target(arcToBranch))]=INVALID;
+            arcs[g.id(g.source(arcToBranch))][g.id(g.target(arcToBranch))] = INVALID;
             g.erase(arcToBranch);
-            recursiveBranch(branchedNodes, timer);
+            recursiveBranch(branchedNodes);
             //Set the original costs
-            for(unsigned int i=0; i<changedCosts.size(); ++i){
+            for (unsigned int i = 0; i < changedCosts.size(); ++i) {
                 masterLP.objCoeff(cols[changedCosts[i].first], changedCosts[i].second);
             }
-            for(unsigned int i=0; i<changedStartCosts.size(); ++i){
+            for (unsigned int i = 0; i < changedStartCosts.size(); ++i) {
                 masterLP.objCoeff(startCols[changedStartCosts[i].first], changedStartCosts[i].second);
             }
-            arcs[g.id(sourceNode)][g.id(targetNode)]=g.addArc(sourceNode, targetNode);
-            c[arcs[g.id(sourceNode)][g.id(targetNode)]]=originalArcCost;
-            myAssert(countArcs(g)==originalArcCount, "Arc(s) vanished!");
-            if(PRINT) cout << "Remove: arc =0" << endl;
+            arcs[g.id(sourceNode)][g.id(targetNode)] = g.addArc(sourceNode, targetNode);
+            c[arcs[g.id(sourceNode)][g.id(targetNode)]] = originalArcCost;
+            myAssert(countArcs(g) == originalArcCount, "Arc(s) vanished!");
+            if (PRINT) cout << "Remove: arc =0" << endl;
         }
     }
-    return timer.realTime()<TIME_LIMIT;
 }
 
 ///If a column contains arc, than changes its objective coefficient to big value

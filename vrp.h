@@ -19,9 +19,9 @@
 #include <utility>
 #include <vector>
 
-#define PRINT true
+#define PRINT false
 #define COLUMN_PRINT false
-#define TIME_LIMIT 300
+#define TIME_LIMIT 910
 
 #ifndef VRP_H
 #define VRP_H
@@ -90,6 +90,7 @@ private:
     vector<double> alphas;
 
     ListDigraph::ArcMap<double> arcUse;
+    lemon::Timer classTimer;
 
     //Best solution
     double bestCost=BIG_VALUE;
@@ -121,7 +122,7 @@ private:
                             double& cost);
     void addGeneratedColumn(vector<ListDigraph::Node>& currRouteNodes,
                             double& cost);
-    bool recursiveBranch(int&  branchedNodes, Timer& timer);
+    void recursiveBranch(int&  branchedNodes);
     void changeObjCoeffs(ListDigraph::Arc arc, vector<pair<int, int>>& changedCosts,
                          vector<pair<ListDigraph::Node, int>>& changedStartCosts);
     void calculateArcUse();

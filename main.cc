@@ -39,7 +39,7 @@ bool readInitData(int &costumerCnt, int &seed, int &maxWeight){
     return true;
 }
 
-int main(){
+int main2(){
     int costumerCnt;
     int seed;
     int maxWeight;
@@ -170,7 +170,7 @@ int main(){
 }
 
 ///Test more inputs from file
-int main2(){
+int main(){
 
     //print
     int costumerCnt;
@@ -183,7 +183,7 @@ int main2(){
         cout << costumerCnt << " " << seed << " " << maxWeight << " " << flush;
         vrp.init(costumerCnt, seed, maxWeight);
         vrp.callBranchAndPrice(smoothingParameter, earlyStop);
-        vrp.checkMIP();
+        //vrp.checkMIP();
     }
     return 0;
 }
