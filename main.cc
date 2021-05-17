@@ -57,7 +57,7 @@ int main2(){
                 vrp.init(costumerCnt, seed, maxWeight);
             }
         } else if(input=="check" || input=="c") {
-            vrp.checkMIP(false);
+            vrp.checkMIP(true);
         } else if(input=="checkprintsolutionarcs"){
             vrp.checkMIP(false, true);
         } else if (input=="checkwithconditions" || input=="cc"){
@@ -180,9 +180,11 @@ int main(){
     bool earlyStop;
     VRP vrp("hun-sc-ncn.lgf");
     while(cin >> costumerCnt >> seed >> maxWeight >> smoothingParameter >> earlyStop){
-        cout << costumerCnt << " " << seed << " " << maxWeight << " " << flush;
+        cout << costumerCnt << "\t" << seed << "\t" << maxWeight << "\t" << flush;
         vrp.init(costumerCnt, seed, maxWeight);
         vrp.callBranchAndPrice(smoothingParameter, earlyStop);
+        cout << endl;
+        //cout.precision(12);
         //vrp.checkMIP();
     }
     return 0;

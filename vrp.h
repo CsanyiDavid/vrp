@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 #include <lemon/arg_parser.h>
 #include <lemon/color.h>
 #include <lemon/dijkstra.h>
@@ -21,7 +22,10 @@
 
 #define PRINT false
 #define COLUMN_PRINT false
+//max running time for the branch & prize algorithm:
 #define TIME_LIMIT 910
+//max difference from optimum: used for better bound in the branch & bound algorithm:
+#define OPTIMUM_DIFF 1000
 
 #ifndef VRP_H
 #define VRP_H
@@ -57,7 +61,7 @@ class NodeLabels;
 
 /// Solves the VRP with the branch and price algorithm
 class BranchAndPrice{
-private:
+public:
     bool createdMasterLP=false;
 
     //Init data

@@ -363,7 +363,7 @@ void VRP::checkMIP(bool printEps, bool printSolutionArcs,
             cout << "Elapsed real time: " << timer.realTime() << "s" << endl;
             cout << "Elapsed user time: " << timer.userTime() << "s" << endl;
         } else {
-            cout << "   " << timer.realTime() << " " << timer.userTime() << " " << mip.solValue() << endl;
+            cout << timer.realTime() << "\t" << timer.userTime() << "\t" << mip.solValue() << endl;
         }
 
         if(printSolutionArcs){
@@ -1032,15 +1032,14 @@ void BranchAndPrice::printMasterLPSolution()
 }
 
 ///Calls createMasterLP and recursiveBranch
-void BranchAndPrice::branchAndBound()
-{
+void BranchAndPrice::branchAndBound() {
     classTimer.restart();
     bestCost = BIG_VALUE;
     if (PRINT) cout << "Branch and bound started: " << endl;
     int branchedNodes = 0;
     createMasterLP();
     recursiveBranch(branchedNodes);
-    bool endedInTime=(classTimer.realTime()<=TIME_LIMIT);
+    bool endedInTime = (classTimer.realTime() <= TIME_LIMIT);
     classTimer.stop();
 
     if (PRINT) {
@@ -1054,7 +1053,8 @@ void BranchAndPrice::branchAndBound()
         cout << "Number of added cols: " << cols.size() << endl;
         cout << "Visited branching nodes: " << branchedNodes << endl;
     } else {
-        cout << endedInTime << " " << classTimer.realTime() << " " << classTimer.userTime() << " " << bestCost << endl;
+        cout << endedInTime << "\t" << classTimer.realTime() << "\t" << classTimer.userTime();
+        cout << "\t" << bestCost << "\t" << flush;
     }
     myAssert(countArcs(g) == n * (n - 1), "Wrong arc count at the end of branchAndBound!");
 }
@@ -1072,13 +1072,14 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
     if(PRINT) cout << "New branching node: " << branchedNodes << endl;
     if(!solveMasterLPwithSmoothing()){
         return;
-    } else if(masterLP.primal()>bestCost-5000) {
+    } else if(masterLP.primal()>bestCost-OPTIMUM_DIFF) {
         if(PRINT) cout << "BOUND" << endl;
         return;
     }
 
     double vehicleNumber=masterLP.primal(vehicleNumberCol);
-    Lp::Row tempRow=INVALID;
+    //Lp::Row tempRow=INVALID;
+    /*
     if(!isWhole(vehicleNumber)){
         //branch on vehicle number
         tempRow=masterLP.addRow(vehicleNumberCol<=floor(vehicleNumber));
@@ -1093,6 +1094,7 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
         if(PRINT) cout << "Remove: vehicleNumberCol >= " << ceil(vehicleNumber) << endl;
         masterLP.erase(tempRow);
     } else {
+         */
         //branch on arcs
         ListDigraph::Arc arcToBranch = INVALID;
         findArcToBranch(arcToBranch);
@@ -1181,7 +1183,7 @@ void BranchAndPrice::recursiveBranch(int& branchedNodes)
             myAssert(countArcs(g) == originalArcCount, "Arc(s) vanished!");
             if (PRINT) cout << "Remove: arc =0" << endl;
         }
-    }
+    //}
 }
 
 ///If a column contains arc, than changes its objective coefficient to big value
